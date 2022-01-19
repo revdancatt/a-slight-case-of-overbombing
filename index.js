@@ -1,19 +1,17 @@
 const ratio = 1.41
 const features = {}
-
+const startTime = new Date().getTime()
 const makeFeatures = () => {
 
   //  These are the combinations of the land we can get, along with the % chance of getting it picked
   const lands = {
-    'SSCC': 3,
-    'SLLL': 8,
-    'SSLL': 9,
-    'SLLC': 16,
-    'SSLC': 25,
-    'SLCC': 16,
-    'LLLC': 8,
-    'LCCC': 3,
-    'SCCC': 2,
+    'SSCC': 4,
+    'SLLL': 9,
+    'SSLL': 11,
+    'SLLC': 18,
+    'SSLC': 27,
+    'SLCC': 18,
+    'SCCC': 3,
   }
   /*
   const lands = {
@@ -175,7 +173,7 @@ C = Sea`)
         features.strips[i].push(curve)
       }
       //  Sort them into "largest" to "smallest", so we draw back to front
-      features.strips[i] = features.strips[i].sort((a, b) => ((a.start + a.end) < (b.start + b.end)) ? 1 : (((b.start + b.end) < (a.start + b.end)) ? -1 : 0))
+      features.strips[i] = features.strips[i].sort((a, b) => ((a.start + a.end) < (b.start + b.end)) ? 1 : (((b.start + b.end) < (a.start + a.end)) ? -1 : 0))
     }
   }
 
@@ -218,7 +216,6 @@ C = Sea`)
       }
 
       for (cloud of features.strips[strip]) {
-        console.log(cloud)
         if (cloud.flipped) {
           //  Sometimes make the curve a half width, but only if it's flipped (for clouds)
           //  Sometimes make the curve a half curve
@@ -241,7 +238,6 @@ C = Sea`)
   for (i in features.land) {
     //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'C') {
-      console.log('Doing sea')
 
       //  Work out how many cures we are going to have
       let target = 4
@@ -293,16 +289,14 @@ C = Sea`)
         features.strips[i].push(curve)
       }
       //  Sort them into "largest" to "smallest", so we draw back to front
-      features.strips[i] = features.strips[i].sort((a, b) => ((a.start + a.end) < (b.start + b.end)) ? 1 : (((b.start + b.end) < (a.start + b.end)) ? -1 : 0))
+      features.strips[i] = features.strips[i].sort((a, b) => ((a.start + a.end) < (b.start + b.end)) ? 1 : (((b.start + b.end) < (a.start + a.end)) ? -1 : 0))
       //  Now go through all of them turning the textured ones back into dark and adding the texture
       for (wave of features.strips[i]) {
         if (wave.colour === 'textured') {
           wave.colour = 'dark'
           wave.textured = true
         }
-
       }
-
     }
   }
 
@@ -311,6 +305,85 @@ C = Sea`)
   if (features.land[0] !== 'C' && features.land[1] === 'C') features.shore = 1
   if (features.land[1] !== 'C' && features.land[2] === 'C') features.shore = 2
   if (features.land[2] !== 'C' && features.land[3] === 'C') features.shore = 3
+
+  //  Now we do the land
+  //  We are starting the colours *OUTSIDE* of the loop, so we can move from one to the next
+
+  /* #########################################################################
+   *
+   * LAND
+   * 
+   * ###################################################################### */
+
+  // TODO: Calculate the top colour from the first strip of sea we have
+  let thisColour = 'dark'
+  let oldColour1 = 'dark'
+  let oldColour2 = null
+  for (i in features.land) {
+    //  If this thing is a sky, then we do sky things
+    if (features.land[i] === 'L') {
+      console.log('Doing land')
+
+      let target = 2
+      if (fxrand() < 0.4) {
+        target = 3
+        if (fxrand() < 0.1) target = 1
+      }
+
+      //  I want to keep track of which starting (middle) and end points have been used
+      //  so we don't use each one twice. There are a few ways of doing this, but I'm
+      //  going to go for the fairly long-winded way of tracking them
+      const started = []
+      const middles = []
+      const ended = []
+
+      //  Now we know how many curves there will be we need to make them
+      for (let t = 0; t < target; t++) {
+        const curve = {}
+        //  Add the default features
+        curve.mode = 'full'
+        curve.flipped = false
+        curve.textured = false
+        curve.texture = 1
+
+        //  The starting and ending postion can be in any of five points
+        //  Top, Bottom, Middle and the two quarter points
+        curve.start = Math.floor(fxrand() * 5) * 0.25
+        curve.end = curve.start
+        //  The end can't match the start
+        while (curve.start === curve.end) curve.end = Math.floor(fxrand() * 5) * 0.25
+        //  Now do it all over again, until we know we've used points that
+        //  haven't already been used
+        while (started.includes(curve.start) || ended.includes(curve.end)) {
+          curve.start = Math.floor(fxrand() * 5) * 0.25
+          curve.end = curve.start
+          while (curve.start === curve.end) curve.end = Math.floor(fxrand() * 5) * 0.25
+        }
+        //  Record the start and end point so we don't use them again
+        started.push(curve.start)
+        ended.push(curve.end)
+
+        //  Work out the colours
+        while (thisColour === oldColour1 || thisColour === oldColour2) {
+          thisColour = features.palette[Math.floor(fxrand() * features.palette.length)]
+        }
+        oldColour2 = oldColour1
+        oldColour1 = thisColour
+        curve.colour = thisColour
+
+        if (fxrand() < 0.2) {
+          curve.mode = 'half'
+          curve.middle = curve.start
+          if (fxrand() < 0.5) curve.middle = curve.end
+        }
+
+        //  Store the curve
+        features.strips[i].push(curve)
+      }
+      //  Sort them into "largest" to "smallest", so we draw back to front
+      features.strips[i] = features.strips[i].sort((a, b) => ((b.start + b.end) < (a.start + a.end)) ? 1 : (((a.start + a.end) < (b.start + b.end)) ? -1 : 0))
+    }
+  }
 
   console.table(features)
 }
@@ -360,58 +433,10 @@ const layoutCanvas = async () => {
 
 }
 
-//  Draw a wave for a strip
-const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
-  console.log(wave)
-  const water1pattern = ctx.createPattern(features.water1, 'repeat')
-
-  let start = null
-  let end = null
-  let cmodmod = 1
-  if (wave.mode === 'half') cmodmod = 2
-
-  start = top + (wave.start * stripSize)
-  end = top + (wave.end * stripSize)
-  console.log('start: ', start)
-  console.log('end: ', end)
-
-  for (let l = 0; l <= 1; l++) {
-    if (l === 0 || (l === 1 && wave.textured)) {
-      //  Standard fill stuff
-      ctx.fillStyle = features.palettes[features.country][wave.colour]
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.globalAlpha = 1.0
-
-      //  If we are using a texture, do that now
-      if (l === 1 && wave.textured) {
-        ctx.fillStyle = water1pattern
-        ctx.globalCompositeOperation = 'lighter'
-        ctx.globalAlpha = 0.5
-        if (wave.colour === 'dark') ctx.globalAlpha = 1.0
-        if (wave.colour === 'light') ctx.globalAlpha = 0.25
-      }
-
-      ctx.beginPath()
-      ctx.moveTo(left, shore)
-      for (i = 0; i <= 1; i += 0.01) {
-        let cmod = (Math.sin(((180 * i * cmodmod) + 90) * (Math.PI / 180)) + 1) / 2
-        y = end - ((end - start) * cmod)
-        ctx.lineTo(left + ((right - left) * i), y)
-      }
-      ctx.lineTo(right, y)
-      ctx.lineTo(right, shore)
-      ctx.closePath()
-      ctx.fill()
-      //  Reset it back
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.globalAlpha = 1.0
-    }
-  }
-}
-
 //  Draw the cloud for a strip
 const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
   const cloud1pattern = ctx.createPattern(features.cloud1, 'repeat')
+  const diff = new Date().getTime() - startTime
 
   let start = null
   let midd = null
@@ -454,7 +479,7 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
       ctx.moveTo(left, edge)
       //  Now we need to step through the points from the start to the end
       for (i = 0; i <= 1; i += 0.01) {
-        let cmod = (Math.sin(((180 * i * cmodmod) + 90) * (Math.PI / 180)) + 1) / 2
+        let cmod = (Math.sin(((180 * i * cmodmod) + (90 + diff / 100)) * (Math.PI / 180)) + 1) / 2
         // if (cloud.mode === 'half') {
         // let cmod = (Math.sin(((180 * i) + 90) * (Math.PI / 180)) + 1) / 2
         // }
@@ -480,7 +505,6 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
               ctx.lineTo((left + ((right - left) * i)), y)
             } else {
               y = midd - ((midd - end) * cmod)
-              console.log(i + ' : ' + cmod + ' : ' + y + 'px')
               ctx.lineTo((left + ((right - left) * (i - 0.5))) + middle, y)
             }
           }
@@ -498,6 +522,120 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
     }
   }
   // ctx.stroke()
+}
+
+//  Draw a wave for a strip
+const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
+  const water1pattern = ctx.createPattern(features.water1, 'repeat')
+
+  let start = null
+  let end = null
+  let cmodmod = 1
+  if (wave.mode === 'half') cmodmod = 2
+
+  start = top + (wave.start * stripSize)
+  end = top + (wave.end * stripSize)
+  if (wave.shrink) {
+    start = top + (wave.start * 0.8 * stripSize)
+    end = top + (wave.end * 0.8 * stripSize)
+  }
+
+  for (let l = 0; l <= 1; l++) {
+    if (l === 0 || (l === 1 && wave.textured)) {
+      //  Standard fill stuff
+      ctx.fillStyle = features.palettes[features.country][wave.colour]
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.globalAlpha = 1.0
+
+      //  If we are using a texture, do that now
+      if (l === 1 && wave.textured) {
+        ctx.fillStyle = water1pattern
+        ctx.globalCompositeOperation = 'lighter'
+        ctx.globalAlpha = 0.5
+        if (wave.colour === 'dark') ctx.globalAlpha = 1.0
+        if (wave.colour === 'light') ctx.globalAlpha = 0.25
+      }
+
+      ctx.beginPath()
+      ctx.moveTo(left, shore)
+      for (i = 0; i <= 1; i += 0.01) {
+        let cmod = (Math.sin(((180 * i * cmodmod) + 90) * (Math.PI / 180)) + 1) / 2
+        y = end - ((end - start) * cmod)
+        ctx.lineTo(left + ((right - left) * i), y)
+      }
+      ctx.lineTo(right, y)
+      ctx.lineTo(right, shore)
+      ctx.closePath()
+      ctx.fill()
+      //  Reset it back
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.globalAlpha = 1.0
+    }
+  }
+}
+
+//  Draw the land for a strip
+const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
+  const start = bottom + (stripSize * land.start)
+  const midd = bottom + (stripSize * land.middle)
+  const end = bottom + (stripSize * land.end)
+  let cmodmod = 1
+  if (land.mode === 'half') cmodmod = 2
+
+  let y = null
+  for (let l = 0; l <= 1; l++) {
+    if (l === 0 || (l === 1 && land.textured)) {
+      ctx.fillStyle = features.palettes[features.country][land.colour]
+      //  Set to default source over
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.globalAlpha = 1.0
+
+      ctx.beginPath()
+      ctx.moveTo(left, shore)
+      //  Now we need to step through the points from the start to the end
+      for (i = 0; i <= 1; i += 0.01) {
+        let cmod = (Math.sin(((180 * i * cmodmod) + 90) * (Math.PI / 180)) + 1) / 2
+        // if (land.mode === 'half') {
+        // let cmod = (Math.sin(((180 * i) + 90) * (Math.PI / 180)) + 1) / 2
+        // }
+        //  If we are drawing a full land then we have to do this
+        if (land.mode === 'full') {
+          y = end - ((end - start) * cmod)
+          ctx.lineTo(left + ((right - left) * i), y)
+        } else {
+          //  Otherwise we have to draw the first half of the land first and then
+          //  the second half
+          if (start !== midd) {
+            if (i <= 0.5) {
+              y = midd - ((midd - start) * cmod)
+              ctx.lineTo((left + ((right - left) * i)), y)
+            } else {
+              y = end
+              ctx.lineTo((left + ((right - left) * i)) + middle, y)
+            }
+          }
+          if (midd !== end) {
+            if (i <= 0.5) {
+              y = midd
+              ctx.lineTo((left + ((right - left) * i)), y)
+            } else {
+              y = midd - ((midd - end) * cmod)
+              ctx.lineTo((left + ((right - left) * (i - 0.5))) + middle, y)
+            }
+          }
+        }
+      }
+      ctx.lineTo(right, y)
+
+      ctx.lineTo(right, shore)
+      ctx.closePath()
+      ctx.fill()
+      //  Reset it back
+      ctx.globalCompositeOperation = 'source-over'
+      ctx.globalAlpha = 1.0
+
+    }
+  }
 }
 
 const drawCanvas = async () => {
@@ -577,8 +715,7 @@ const drawCanvas = async () => {
       //  Loop through the curves drawing them
       for (wave of features.strips[strip]) {
         if (strip === 3) {
-          wave.start *= 0.8
-          wave.end *= 0.8
+          wave.shrink = true
         }
         drawWave(ctx, wave, stripSize, shore, top, left, right, middle)
       }
@@ -587,28 +724,26 @@ const drawCanvas = async () => {
 
   //   FINALLY THE LAND
   for (strip = 0; strip < 4; strip++) {
-    if (features.land[strip] === 'L') {
-      //  Draw the rectangle
-      ctx.fillStyle = features.palettes[features.country]['dark']
-      if (strip % 2 === 0) ctx.fillStyle = features.palettes[features.country]['light']
-      ctx.fillRect(0, canvas.height / 4 * strip, canvas.width, canvas.height / 4)
 
-      //  Write the text
-      ctx.fillStyle = features.palettes[features.country]['dark']
-      if (strip % 2 === 1) ctx.fillStyle = features.palettes[features.country]['light']
-      ctx.textAlign = 'center'
-      const fontSize = canvas.height / 8
-      ctx.font = `bold ${fontSize}px Futura`
-      ctx.fillText(landMap[features.land[strip]], canvas.width / 2, (canvas.height / 4 * strip) + (canvas.height / 4 / 2) + (fontSize / 2))
-      toggle++
+    const stripSize = canvas.height / 4
+    const shore = stripSize * features.shore
+    const bottom = stripSize * (strip)
+    const left = 0
+    const right = canvas.width
+    const middle = canvas.width / 2
+
+    if (features.land[strip] === 'L') {
+      for (land of features.strips[strip]) {
+        drawLand(ctx, land, stripSize, shore, bottom, left, right, middle)
+      }
     }
   }
 
   // autoDownloadCanvas()
   setTimeout(() => {
-    makeFeatures()
+    // makeFeatures()
     drawCanvas()
-  }, 800)
+  }, 66)
 }
 init()
 // autoDownloadCanvas()
