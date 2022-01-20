@@ -457,7 +457,7 @@ const layoutCanvas = async () => {
   waterImg1.src = water1
   base64Response = await fetch(water1)
   blob = await base64Response.blob()
-  features.water1 = await createImageBitmap(blob, 0, 0, 1024, 1024, {
+  features.water1 = await createImageBitmap(blob, 0, 0, 1024, 512, {
     resizeWidth: canvas.width / 3,
     resizeQuality: 'medium'
   })
