@@ -458,7 +458,7 @@ const layoutCanvas = async () => {
   base64Response = await fetch(water1)
   blob = await base64Response.blob()
   features.water1 = await createImageBitmap(blob, 0, 0, 1024, 512, {
-    resizeWidth: canvas.width / 3,
+    resizeWidth: canvas.width / 1,
     resizeQuality: 'medium'
   })
 }
@@ -731,6 +731,16 @@ const drawCanvas = async () => {
       }
     }
   }
+  //  Now draw a gradient from the shoreline down to the bottom of the image
+  const seaGrad = ctx.createLinearGradient(0, features.shore * canvas.height / 4, 0, canvas.height)
+  seaGrad.addColorStop(0, features.palettes[features.country].dark)
+  seaGrad.addColorStop(1, features.palettes[features.country].light)
+  ctx.fillStyle = seaGrad
+  ctx.globalAlpha = 0.75
+  ctx.globalCompositeOperation = 'darker'
+  ctx.fillRect(0, features.shore * canvas.height / 4, canvas.width, canvas.height)
+  ctx.globalCompositeOperation = 'lighter'
+  ctx.globalAlpha = 1.0
 
   //   FINALLY THE LAND
   for (let strip = 0; strip < 4; strip++) {
