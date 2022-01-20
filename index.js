@@ -5,13 +5,10 @@ const startTime = new Date().getTime()
 const makeFeatures = () => {
   //  These are the combinations of the land we can get, along with the % chance of getting it picked
   const lands = {
-    SSCC: 4,
-    SLLL: 9,
-    SSLL: 11,
-    SLLC: 18,
-    SSLC: 27,
-    SLCC: 18,
-    SCCC: 3
+    SSCC: 25,
+    SLLC: 25,
+    SSLC: 25,
+    SLCC: 25
   }
   /*
   const lands = {
@@ -20,7 +17,11 @@ const makeFeatures = () => {
   */
 
   const palette = ['dark', 'medium', 'light']
-  const paletteSea = ['dark', 'textured', 'medium', 'light']
+  features.speed = {
+    fast: 300,
+    medium: 700,
+    slow: 1500
+  }
 
   const palettes = {
     England: {
@@ -206,28 +207,28 @@ C = Sea`)
       if (features.strips[strip][1]) second = features.strips[strip][1]
       if (features.strips[strip][2]) third = features.strips[strip][2]
 
-      //  If there are three lands and NONE of them are textured, then we may texture some of them
+      //  If there are three skies and NONE of them are textured, then we may texture some of them
       if (third !== null && second !== null && !first.textured && !second.textured && !third.textured) {
         const textureChance = fxrand()
         if (textureChance < 0.5) second.textured = true
         if (textureChance > 0.75) first.textured = true
       }
 
-      //  If there are two lands, we _may_ shade the outer one
+      //  If there are two skies, we _may_ shade the outer one
       if (third === null && second !== null && !first.textured && !second.textured) {
         if (fxrand() < 0.6) first.textured = true
       }
 
-      for (const cloud of features.strips[strip]) {
-        if (cloud.flipped) {
-          //  Sometimes make the curve a half width, but only if it's flipped (for clouds)
-          //  Sometimes make the curve a half curve
-          if (fxrand() < 0.0) {
-            cloud.mode = 'half'
-            cloud.middle = cloud.start
-            if (fxrand() < 0.5) cloud.middle = cloud.end
-          }
-        }
+      //  Set the speeds
+      if (!third && !second) first.speed = 'fast'
+      if (!third && second && first) {
+        first.speed = 'medium'
+        second.speed = 'fast'
+      }
+      if (third && second && first) {
+        first.speed = 'slow'
+        second.speed = 'medium'
+        third.speed = 'fast'
       }
     }
   }
@@ -403,18 +404,15 @@ C = Sea`)
   for (const i in features.land) {
     //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'C') {
-      for (const wave of features.strips[i]) {
+      for (let w = features.strips[i].length - 1; w >= 0; w--) {
         //  Work out the colours
         while (thisColour === oldColour1 || thisColour === oldColour2) {
-          thisColour = paletteSea[Math.floor(fxrand() * paletteSea.length)]
+          thisColour = palette[Math.floor(fxrand() * palette.length)]
         }
         oldColour2 = oldColour1
         oldColour1 = thisColour
-        wave.colour = thisColour
-        if (wave.colour === 'textured') {
-          wave.colour = 'dark'
-          wave.textured = true
-        }
+        features.strips[i][w].colour = thisColour
+        if (fxrand() < 0.75) features.strips[i][w].textured = true
       }
     }
   }
@@ -510,39 +508,16 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
       ctx.beginPath()
       ctx.moveTo(left, edge)
       //  Now we need to step through the points from the start to the end
-      for (let i = 0; i <= 1; i += 0.01) {
-        const cmod = (Math.sin(((180 * i * cmodmod) + (90 + diff / 100)) * (Math.PI / 180)) + 1) / 2
+      for (let i = 0; i <= 1.01; i += 0.01) {
+        const cmod = (Math.sin(((180 * i * cmodmod) + (90 + diff / features.speed[cloud.speed])) * (Math.PI / 180)) + 1) / 2
         // if (cloud.mode === 'half') {
         // let cmod = (Math.sin(((180 * i) + 90) * (Math.PI / 180)) + 1) / 2
         // }
         //  If we are drawing a full cloud then we have to do this
-        if (cloud.mode === 'full') {
-          y = end - ((end - start) * cmod)
-          ctx.lineTo(left + ((right - left) * i), y)
-        } else {
-          //  Otherwise we have to draw the first half of the cloud first and then
-          //  the second half
-          if (start !== midd) {
-            if (i <= 0.5) {
-              y = midd - ((midd - start) * cmod)
-              ctx.lineTo((left + ((right - left) * i)), y)
-            } else {
-              y = end
-              ctx.lineTo((left + ((right - left) * i)) + middle, y)
-            }
-          }
-          if (midd !== end) {
-            if (i <= 0.5) {
-              y = midd
-              ctx.lineTo((left + ((right - left) * i)), y)
-            } else {
-              y = midd - ((midd - end) * cmod)
-              ctx.lineTo((left + ((right - left) * (i - 0.5))) + middle, y)
-            }
-          }
-        }
+        y = end - ((end - start) * cmod)
+        ctx.lineTo(left + ((right - left) * i), y)
       }
-      ctx.lineTo(right, y)
+      // ctx.lineTo(right, y)
 
       ctx.lineTo(right, edge)
       ctx.closePath()
@@ -583,7 +558,7 @@ const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
         ctx.fillStyle = water1pattern
         ctx.globalCompositeOperation = 'lighter'
         ctx.globalAlpha = 0.5
-        if (wave.colour === 'dark') ctx.globalAlpha = 1.0
+        if (wave.colour === 'dark') ctx.globalAlpha = 0.75
         if (wave.colour === 'light') ctx.globalAlpha = 0.25
       }
 
@@ -730,10 +705,12 @@ const drawCanvas = async () => {
       // let redrawTexture = false
       // if (typeof (ctx.fillStyle) === 'object') redrawTexture = true
       //  Draw the rectangle
-      ctx.fillStyle = features.palettes[features.country].dark
-      ctx.globalCompositeOperation = 'source-over'
-      ctx.globalAlpha = 1.0
-      ctx.fillRect(0, canvas.height / 4 * strip, canvas.width, canvas.height / 4)
+      if (strip === 3) {
+        ctx.fillStyle = features.palettes[features.country].dark
+        ctx.globalCompositeOperation = 'source-over'
+        ctx.globalAlpha = 1.0
+        ctx.fillRect(0, canvas.height / 4 * strip, canvas.width, canvas.height / 4)
+      }
       /*
 
       //  Draw the texture
