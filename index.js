@@ -1,17 +1,17 @@
+/* global fxrand cloud1 water1 Image fetch createImageBitmap */
 const ratio = 1.41
 const features = {}
 const startTime = new Date().getTime()
 const makeFeatures = () => {
-
   //  These are the combinations of the land we can get, along with the % chance of getting it picked
   const lands = {
-    'SSCC': 4,
-    'SLLL': 9,
-    'SSLL': 11,
-    'SLLC': 18,
-    'SSLC': 27,
-    'SLCC': 18,
-    'SCCC': 3,
+    SSCC: 4,
+    SLLL: 9,
+    SSLL: 11,
+    SLLC: 18,
+    SSLC: 27,
+    SLCC: 18,
+    SCCC: 3
   }
   /*
   const lands = {
@@ -23,22 +23,22 @@ const makeFeatures = () => {
   const paletteSea = ['dark', 'textured', 'medium', 'light']
 
   const palettes = {
-    'England': {
+    England: {
       dark: '#F30000',
       medium: '#F37878',
       light: '#F3B6B6'
     },
-    'Wales': {
+    Wales: {
       dark: '#D95C24',
       medium: '#E8A730',
       light: '#F1D726'
     },
-    'Scotland': {
+    Scotland: {
       dark: '#425EFF',
       medium: '#A1AFFF',
       light: '#D9DEFF'
     },
-    'Ireland': {
+    Ireland: {
       dark: '#00D13A',
       medium: '#69D185',
       light: '#9DD1AB'
@@ -50,7 +50,7 @@ const makeFeatures = () => {
   let simTimes = 1
   const tally = {}
   let tallyTotal = 0
-  for (land in lands) {
+  for (const land in lands) {
     tally[land] = 0
   }
   let thisLand = null
@@ -67,7 +67,7 @@ const makeFeatures = () => {
     const landChance = Math.floor(fxrand() * 100)
     thisLand = null
     let total = 0
-    for (land in lands) {
+    for (const land in lands) {
       if (landChance >= total) thisLand = land
       total += lands[land]
     }
@@ -75,7 +75,7 @@ const makeFeatures = () => {
     tallyTotal += 1 / simTimes
   }
   const finalTally = []
-  for (t in tally) {
+  for (const t in tally) {
     finalTally.push({
       land: t,
       appears: parseFloat(tally[t].toFixed(2)),
@@ -112,9 +112,12 @@ C = Sea`)
   /* #########################################################################
    *
    * SKY
-   * 
+   *
    * ###################################################################### */
-  for (i in features.land) {
+  let thisColour = 'dark'
+  let oldColour1 = 'dark'
+  let oldColour2 = null
+  for (const i in features.land) {
     //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'S') {
       //  Sometimes we will have 1 curve, other times 3, but most of the time we'll have 2
@@ -124,15 +127,15 @@ C = Sea`)
         if (fxrand() < 0.1) target = 1
       }
 
-      let thisColour = 'dark'
-      let oldColour1 = 'dark'
-      let oldColour2 = null
+      //  Reset for next strip
+      thisColour = 'dark'
+      oldColour1 = 'dark'
+      oldColour2 = null
 
       //  I want to keep track of which starting (middle) and end points have been used
       //  so we don't use each one twice. There are a few ways of doing this, but I'm
       //  going to go for the fairly long-winded way of tracking them
       const started = []
-      const middles = []
       const ended = []
 
       //  Now we know how many curves there will be we need to make them
@@ -179,9 +182,9 @@ C = Sea`)
 
   //  If we have two skys, then the first one needs to be marked as not flipped,
   //  and we need to check to see if they have matching middle colours
-  let middleHappened = false
+  // let middleHappened = false
   if (features.land[0] === 'S' && features.land[1] === 'S') {
-    for (cloud of features.strips[0]) {
+    for (const cloud of features.strips[0]) {
       cloud.flipped = false
     }
 
@@ -190,11 +193,11 @@ C = Sea`)
     if (features.strips[0][features.strips[0].length - 1].colour === features.strips[1][features.strips[1].length - 1].colour) {
       features.strips[0][features.strips[0].length - 1].textured = true
       features.strips[1][features.strips[1].length - 1].textured = true
-      middleHappened = true
+      // middleHappened = true
     }
   }
 
-  for (strip in features.land) {
+  for (const strip in features.land) {
     if (features.land[strip] === 'S') {
       let first = null
       let second = null
@@ -215,7 +218,7 @@ C = Sea`)
         if (fxrand() < 0.6) first.textured = true
       }
 
-      for (cloud of features.strips[strip]) {
+      for (const cloud of features.strips[strip]) {
         if (cloud.flipped) {
           //  Sometimes make the curve a half width, but only if it's flipped (for clouds)
           //  Sometimes make the curve a half curve
@@ -232,25 +235,24 @@ C = Sea`)
   /* #########################################################################
    *
    * SEA
-   * 
+   *
    * ###################################################################### */
-  let seaCount = 0
-  for (i in features.land) {
+  // const seaCount = 0
+
+  //  Reset the colours, but this time we don't reset between strips
+  thisColour = 'dark'
+  oldColour1 = 'dark'
+  oldColour2 = null
+  for (const i in features.land) {
     //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'C') {
-
       //  Work out how many cures we are going to have
-      let target = 4
-
-      let thisColour = 'dark'
-      let oldColour1 = 'dark'
-      let oldColour2 = null
+      const target = 4
 
       //  I want to keep track of which starting (middle) and end points have been used
       //  so we don't use each one twice. There are a few ways of doing this, but I'm
       //  going to go for the fairly long-winded way of tracking them
       const started = []
-      const middles = []
       const ended = []
 
       //  Now we know how many curves there will be we need to make them
@@ -278,23 +280,16 @@ C = Sea`)
         started.push(curve.start)
         ended.push(curve.end)
 
-        //  Work out the colours
-        while (thisColour === oldColour1 || thisColour === oldColour2) {
-          thisColour = paletteSea[Math.floor(fxrand() * paletteSea.length)]
-        }
-        oldColour2 = oldColour1
-        oldColour1 = thisColour
-        curve.colour = thisColour
         //  Store the curve
         features.strips[i].push(curve)
       }
       //  Sort them into "largest" to "smallest", so we draw back to front
       features.strips[i] = features.strips[i].sort((a, b) => ((a.start + a.end) < (b.start + b.end)) ? 1 : (((b.start + b.end) < (a.start + a.end)) ? -1 : 0))
       //  Now go through all of them turning the textured ones back into dark and adding the texture
-      for (wave of features.strips[i]) {
+      for (const wave of features.strips[i]) {
         if (wave.colour === 'textured') {
           wave.colour = 'dark'
-          wave.textured = true
+          // wave.textured = true
         }
       }
     }
@@ -312,18 +307,17 @@ C = Sea`)
   /* #########################################################################
    *
    * LAND
-   * 
+   *
    * ###################################################################### */
 
   // TODO: Calculate the top colour from the first strip of sea we have
-  let thisColour = 'dark'
-  let oldColour1 = 'dark'
-  let oldColour2 = null
-  for (i in features.land) {
+  //  Reset the colours, but again don't reset between strips
+  thisColour = 'dark'
+  oldColour1 = 'dark'
+  oldColour2 = null
+  for (const i in features.land) {
     //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'L') {
-      console.log('Doing land')
-
       let target = 2
       if (fxrand() < 0.4) {
         target = 3
@@ -334,7 +328,6 @@ C = Sea`)
       //  so we don't use each one twice. There are a few ways of doing this, but I'm
       //  going to go for the fairly long-winded way of tracking them
       const started = []
-      const middles = []
       const ended = []
 
       //  Now we know how many curves there will be we need to make them
@@ -385,6 +378,46 @@ C = Sea`)
     }
   }
 
+  /* #########################################################################
+   *
+   * SEA TWO
+   *
+   * ###################################################################### */
+  //  Now we want to colour the sea, but we need to work out a little bit of land first
+  //  Now do the colours, starting from the top strip and working our way down the land
+  //  grabbing the last colour used.
+  thisColour = 'dark'
+  oldColour1 = 'dark'
+  oldColour2 = null
+  for (const i in features.land) {
+    //  If this thing is a sky, then we do sky things
+    if (features.land[i] === 'L') {
+      for (const land of features.strips[i]) {
+        thisColour = land.colour
+        oldColour1 = land.colour
+        oldColour2 = null
+      }
+    }
+  }
+
+  for (const i in features.land) {
+    //  If this thing is a sky, then we do sky things
+    if (features.land[i] === 'C') {
+      for (const wave of features.strips[i]) {
+        //  Work out the colours
+        while (thisColour === oldColour1 || thisColour === oldColour2) {
+          thisColour = paletteSea[Math.floor(fxrand() * paletteSea.length)]
+        }
+        oldColour2 = oldColour1
+        oldColour1 = thisColour
+        wave.colour = thisColour
+        if (wave.colour === 'textured') {
+          wave.colour = 'dark'
+          wave.textured = true
+        }
+      }
+    }
+  }
   console.table(features)
 }
 
@@ -408,8 +441,8 @@ const layoutCanvas = async () => {
   canvas.width = cWidth
   canvas.height = cHeight
   canvas.style.position = 'absolute'
-  canvas.style.left = `${(wWidth - cWidth)/2}px`
-  canvas.style.top = `${(wHeight - cHeight)/2}px`
+  canvas.style.left = `${(wWidth - cWidth) / 2}px`
+  canvas.style.top = `${(wHeight - cHeight) / 2}px`
 
   //  Load in the clouds
   const cloudImg1 = new Image()
@@ -430,7 +463,6 @@ const layoutCanvas = async () => {
     resizeWidth: canvas.width / 3,
     resizeQuality: 'medium'
   })
-
 }
 
 //  Draw the cloud for a strip
@@ -478,8 +510,8 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
       ctx.beginPath()
       ctx.moveTo(left, edge)
       //  Now we need to step through the points from the start to the end
-      for (i = 0; i <= 1; i += 0.01) {
-        let cmod = (Math.sin(((180 * i * cmodmod) + (90 + diff / 100)) * (Math.PI / 180)) + 1) / 2
+      for (let i = 0; i <= 1; i += 0.01) {
+        const cmod = (Math.sin(((180 * i * cmodmod) + (90 + diff / 100)) * (Math.PI / 180)) + 1) / 2
         // if (cloud.mode === 'half') {
         // let cmod = (Math.sin(((180 * i) + 90) * (Math.PI / 180)) + 1) / 2
         // }
@@ -518,7 +550,6 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
       //  Reset it back
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
-
     }
   }
   // ctx.stroke()
@@ -558,8 +589,9 @@ const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
 
       ctx.beginPath()
       ctx.moveTo(left, shore)
-      for (i = 0; i <= 1; i += 0.01) {
-        let cmod = (Math.sin(((180 * i * cmodmod) + 90) * (Math.PI / 180)) + 1) / 2
+      let y = end
+      for (let i = 0; i <= 1; i += 0.01) {
+        const cmod = (Math.sin(((180 * i * cmodmod) + 90) * (Math.PI / 180)) + 1) / 2
         y = end - ((end - start) * cmod)
         ctx.lineTo(left + ((right - left) * i), y)
       }
@@ -593,8 +625,8 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
       ctx.beginPath()
       ctx.moveTo(left, shore)
       //  Now we need to step through the points from the start to the end
-      for (i = 0; i <= 1; i += 0.01) {
-        let cmod = (Math.sin(((180 * i * cmodmod) + 90) * (Math.PI / 180)) + 1) / 2
+      for (let i = 0; i <= 1; i += 0.01) {
+        const cmod = (Math.sin(((180 * i * cmodmod) + 90) * (Math.PI / 180)) + 1) / 2
         // if (land.mode === 'half') {
         // let cmod = (Math.sin(((180 * i) + 90) * (Math.PI / 180)) + 1) / 2
         // }
@@ -633,7 +665,6 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
       //  Reset it back
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
-
     }
   }
 }
@@ -646,21 +677,23 @@ const drawCanvas = async () => {
   const water1pattern = ctx.createPattern(features.water1, 'repeat')
 
   //  Now draw the rectangles
+  /*
   const landMap = {
-    'S': 'SKY',
-    'L': 'LAND',
-    'C': 'SEA'
+    S: 'SKY',
+    L: 'LAND',
+    C: 'SEA'
   }
+  */
   features.ctx = ctx
-  let toggle = 0
+  // const toggle = 0
 
   //   DEAL WITH THE SKY FIRST
-  for (strip = 0; strip < 4; strip++) {
+  for (let strip = 0; strip < 4; strip++) {
     //  Just to make things a little easier, let's work out where our
     //  corners are
     const stripSize = canvas.height / 4
     const top = stripSize * strip
-    const bottom = top + stripSize
+    // const bottom = top + stripSize
     const left = 0
     const right = canvas.width
     const middle = canvas.width / 2
@@ -668,9 +701,8 @@ const drawCanvas = async () => {
     //  If we are drawing the sky, do it one way
     //  otherwise keep going the old fashioned way
     if (features.land[strip] === 'S') {
-
       //  Loop through the curves drawing them
-      for (cloud of features.strips[strip]) {
+      for (const cloud of features.strips[strip]) {
         //  Now draw the cloud
         //  if we aren't the last sky, then draw the fills from the bottom of the
         //  strip up, otherwise draw them from the top of the strip down
@@ -680,8 +712,8 @@ const drawCanvas = async () => {
   }
 
   //   NOW TO THE SEA
-  ctx.fillStyle = features.palettes[features.country]['dark']
-  for (strip = 3; strip >= 0; strip--) {
+  ctx.fillStyle = features.palettes[features.country].dark
+  for (let strip = 3; strip >= 0; strip--) {
     //  Just to make things a little easier, let's work out where our
     //  corners are
     const stripSize = canvas.height / 4
@@ -695,13 +727,14 @@ const drawCanvas = async () => {
       //  If the last thing we drew was a textured pattern, then we need to fill
       //  the rectange in with dark blue first, and then over the top again with the
       // texture
-      let redrawTexture = false
-      if (typeof (ctx.fillStyle === 'object')) redrawTexture = true
+      // let redrawTexture = false
+      // if (typeof (ctx.fillStyle) === 'object') redrawTexture = true
       //  Draw the rectangle
-      ctx.fillStyle = features.palettes[features.country]['dark']
+      ctx.fillStyle = features.palettes[features.country].dark
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
       ctx.fillRect(0, canvas.height / 4 * strip, canvas.width, canvas.height / 4)
+      /*
 
       //  Draw the texture
       ctx.fillStyle = water1pattern
@@ -711,9 +744,9 @@ const drawCanvas = async () => {
 
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
-
+      */
       //  Loop through the curves drawing them
-      for (wave of features.strips[strip]) {
+      for (const wave of features.strips[strip]) {
         if (strip === 3) {
           wave.shrink = true
         }
@@ -723,8 +756,7 @@ const drawCanvas = async () => {
   }
 
   //   FINALLY THE LAND
-  for (strip = 0; strip < 4; strip++) {
-
+  for (let strip = 0; strip < 4; strip++) {
     const stripSize = canvas.height / 4
     const shore = stripSize * features.shore
     const bottom = stripSize * (strip)
@@ -733,7 +765,7 @@ const drawCanvas = async () => {
     const middle = canvas.width / 2
 
     if (features.land[strip] === 'L') {
-      for (land of features.strips[strip]) {
+      for (const land of features.strips[strip]) {
         drawLand(ctx, land, stripSize, shore, bottom, left, right, middle)
       }
     }

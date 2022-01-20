@@ -1,0 +1,26 @@
+{
+  "name": "fxhash-landscape",
+  "version": "1.0.0",
+  "description": "A fancy pants landscape generator",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://revdancatt@github.com/revdancatt/fxhash-landscape.git"
+  },
+  "keywords": [
+    "fxhash",
+    "generative"
+  ],
+  "author": "revdancatt",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/revdancatt/fxhash-landscape/issues"
+  },
+  "homepage": "https://github.com/revdancatt/fxhash-landscape#readme",
+  "devDependencies": {
+    "standard": "^16.0.4"
+  }
+}
