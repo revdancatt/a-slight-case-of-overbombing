@@ -2,13 +2,20 @@
 const ratio = 1.41
 const features = {}
 const startTime = new Date().getTime()
+let lastTick = new Date().getTime()
+let timePassed = 0
+let speedMod = 1
+let goingDown = true
+let sunMoonPhase = 'sun'
+let lastSunPosition = null
+
 const makeFeatures = () => {
   //  These are the combinations of the land we can get, along with the % chance of getting it picked
   const lands = {
-    SSCC: 25,
-    SLLC: 25,
-    SSLC: 25,
-    SLCC: 25
+    SSCC: 0,
+    SLLC: 0,
+    SSLC: 100,
+    SLCC: 0
   }
   /*
   const lands = {
@@ -25,21 +32,25 @@ const makeFeatures = () => {
 
   const palettes = {
     England: {
+      shade: '#800000',
       dark: '#F30000',
       medium: '#F37878',
       light: '#F3B6B6'
     },
     Wales: {
+      shade: '#6B2D12',
       dark: '#D95C24',
       medium: '#E8A730',
       light: '#F1D726'
     },
     Scotland: {
+      shade: '#212F80',
       dark: '#425EFF',
       medium: '#A1AFFF',
       light: '#D9DEFF'
     },
     Ireland: {
+      shade: '#00691D',
       dark: '#00D13A',
       medium: '#69D185',
       light: '#9DD1AB'
@@ -316,6 +327,7 @@ C = Sea`)
   thisColour = 'dark'
   oldColour1 = 'dark'
   oldColour2 = null
+  let landCount = 0
   for (const i in features.land) {
     //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'L') {
@@ -373,9 +385,20 @@ C = Sea`)
 
         //  Store the curve
         features.strips[i].push(curve)
+        landCount++
       }
       //  Sort them into "largest" to "smallest", so we draw back to front
       features.strips[i] = features.strips[i].sort((a, b) => ((b.start + b.end) < (a.start + a.end)) ? 1 : (((a.start + a.end) < (b.start + b.end)) ? -1 : 0))
+    }
+  }
+
+  //  Go through the lands now numbering them for darkness
+  for (const i in features.land) {
+    //  If this thing is a sky, then we do sky things
+    if (features.land[i] === 'L') {
+      for (land of features.strips[i]) {
+        land.darkness = --landCount
+      }
     }
   }
 
@@ -416,6 +439,65 @@ C = Sea`)
       }
     }
   }
+
+
+  /* #########################################################################
+   *
+   * EXTRAS
+   *
+   * ###################################################################### */
+  if (features.land !== 'SSCC') {
+    let sunHeight = null
+    if (features.land === 'SLLC') {
+      sunHeight = 1
+    }
+    if (features.land === 'SSLC') {
+      sunHeight = 2
+    }
+    if (features.land === 'SLCC') {
+      sunHeight = 1
+    }
+
+    //  Keep track of the average start and end heights
+    let skyStartHeight = 0
+    let skyEndHeight = 0
+    let landStartHeight = 0
+    let landEndHeight = 0
+
+    //  Go through the lowest sky strip    
+    for (cloud of features.strips[sunHeight - 1]) {
+      skyStartHeight += cloud.start
+      skyEndHeight += cloud.end
+    }
+    skyStartHeight /= features.strips[sunHeight - 1].length
+    skyEndHeight /= features.strips[sunHeight - 1].length
+
+    //  Same again with the land 
+    for (land of features.strips[sunHeight]) {
+      landStartHeight += (1 - land.start)
+      landEndHeight += (1 - land.end)
+    }
+    landStartHeight /= features.strips[sunHeight].length
+    landEndHeight /= features.strips[sunHeight].length
+
+    //  Now score them up to work out how far across to put the sun
+    let skyPosition = 0.5
+    if (skyStartHeight < skyEndHeight) skyPosition = 0.25
+    if (skyStartHeight > skyEndHeight) skyPosition = 0.75
+
+    let landPosition = 0.5
+    if (landStartHeight < landEndHeight) landPosition = 0.25
+    if (landStartHeight > landEndHeight) landPosition = 0.75
+
+    //  Turn this into the Sun X Position
+    const sunPosition = {
+      x: (skyPosition + landPosition) / 2,
+      strip: sunHeight,
+      size: ((1 - skyStartHeight) + (1 - skyEndHeight) + (1 - landStartHeight) + (1 - landEndHeight)) / 4
+    }
+    features.sunPosition = sunPosition
+  }
+
   console.table(features)
 }
 
@@ -466,7 +548,7 @@ const layoutCanvas = async () => {
 //  Draw the cloud for a strip
 const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
   const cloud1pattern = ctx.createPattern(features.cloud1, 'repeat')
-  const diff = new Date().getTime() - startTime
+  const diff = timePassed
 
   let start = null
   let midd = null
@@ -590,12 +672,20 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
   if (land.mode === 'half') cmodmod = 2
 
   let y = null
-  for (let l = 0; l <= 1; l++) {
-    if (l === 0 || (l === 1 && land.textured)) {
+  for (let l = 0; l <= 2; l++) {
+    if (l === 0 || (l === 1 && land.textured) || l === 2) {
+
       ctx.fillStyle = features.palettes[features.country][land.colour]
       //  Set to default source over
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
+
+      //  If we are on the third pass then add the darkness in
+      if (l === 2) {
+        ctx.fillStyle = 'black'
+        ctx.fillStyle = features.palettes[features.country]['shade']
+        ctx.globalAlpha = 0.08 * land.darkness
+      }
 
       ctx.beginPath()
       ctx.moveTo(left, shore)
@@ -644,12 +734,61 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
   }
 }
 
+const drawSun = (ctx, sun, width, stripSize) => {
+
+  let sunLevel = stripSize * sun.strip + (stripSize * 1.5 * Math.sin(timePassed / 100000))
+  let sizeMod = 1
+  if (sunMoonPhase !== 'sun') sizeMod = 0.66
+
+  ctx.fillStyle = features.palettes[features.country].dark
+  ctx.beginPath();
+  ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * .8, 0, 2 * Math.PI);
+  ctx.fill()
+
+  ctx.fillStyle = 'white'
+  ctx.globalAlpha = 0.25
+  if (sunMoonPhase !== 'sun') ctx.globalAlpha = 0.75
+  ctx.beginPath();
+  ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * .8, 0, 2 * Math.PI);
+  ctx.fill()
+
+  ctx.globalAlpha = 1.0
+}
+
 const drawCanvas = async () => {
   const canvas = document.getElementById('target')
   const ctx = canvas.getContext('2d')
+
+  //  update the time passed
+  //  We do it this way so we can speed up time if needed.
+  timePassed += (new Date().getTime() - lastTick) * speedMod
+  lastTick = new Date().getTime()
+
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.globalAlpha = 1.0
   ctx.fillStyle = '#FFF'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
-  const water1pattern = ctx.createPattern(features.water1, 'repeat')
+
+  //  Work out how to colour the sky
+  const satThreshold = 0.4
+  let darkThreshold = 0.5
+  if (lastSunPosition !== null) {
+    const darkThreshold = 0.1
+    if (lastSunPosition > darkThreshold || sunMoonPhase !== 'sun') {
+      darkenBy = (lastSunPosition - darkThreshold) / (1 - darkThreshold)
+      if (sunMoonPhase !== 'sun') darkenBy = (1 - darkThreshold) / (1 - darkThreshold)
+      ctx.globalCompositeOperation = 'darken'
+      ctx.globalAlpha = darkenBy
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+    }
+  }
+  //  Reset back to normal
+  darkThreshold = 0.25
+  ctx.globalCompositeOperation = 'source-over'
+  ctx.globalAlpha = 1.0
+
+  // const water1pattern = ctx.createPattern(features.water1, 'repeat')
 
   //  Now draw the rectangles
   /*
@@ -661,6 +800,9 @@ const drawCanvas = async () => {
   */
   features.ctx = ctx
   // const toggle = 0
+
+  //  Draw the sun
+  if (features.sunPosition) drawSun(ctx, features.sunPosition, canvas.width, canvas.height / 4)
 
   //   DEAL WITH THE SKY FIRST
   for (let strip = 0; strip < 4; strip++) {
@@ -756,6 +898,49 @@ const drawCanvas = async () => {
         drawLand(ctx, land, stripSize, shore, bottom, left, right, middle)
       }
     }
+  }
+
+  const newSunPosition = Math.sin(timePassed / 100000)
+  if (lastSunPosition !== null) {
+    //  do direction check
+    //  If we are going up...
+    if (newSunPosition < lastSunPosition) {
+      //  If we were going down, it means we have now switched to going up
+      if (goingDown) {
+        if (sunMoonPhase === 'sun') {
+          sunMoonPhase = 'moon'
+        } else {
+          sunMoonPhase = 'sun'
+        }
+      }
+      goingDown = false
+    }
+
+    if (newSunPosition > lastSunPosition) {
+      goingDown = true
+    }
+  }
+  lastSunPosition = newSunPosition
+
+  // console.log(lastSunPosition)
+
+  //  Do the saturation
+  if (lastSunPosition > satThreshold || sunMoonPhase === 'moon') {
+    saturationBy = (lastSunPosition - satThreshold) / (1 - satThreshold)
+    if (sunMoonPhase === 'moon') saturationBy = (1 - satThreshold) / (1 - satThreshold)
+
+    ctx.globalCompositeOperation = 'saturation'
+    ctx.globalAlpha = saturationBy * .9
+    ctx.fillStyle = '#999999'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+
+  if (lastSunPosition > darkThreshold) {
+    darkenBy = (lastSunPosition - darkThreshold) / (1 - darkThreshold)
+    ctx.globalCompositeOperation = 'overlay'
+    ctx.globalAlpha = darkenBy * 0.8
+    ctx.fillStyle = '#000000'
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
 
   // autoDownloadCanvas()
