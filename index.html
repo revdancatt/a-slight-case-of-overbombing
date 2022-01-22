@@ -35,21 +35,6 @@
 </head>
 
 <body>
-  <script>
-    const autoDownloadCanvas = async (showHash = false) => {
-      var element = document.createElement('a')
-      element.setAttribute('download', `Landscape_${fxhash}`)
-      element.style.display = 'none'
-      document.body.appendChild(element)
-      let imageBlob = null
-      imageBlob = await new Promise(resolve => document.getElementById('target').toBlob(resolve, 'image/png'))
-      element.setAttribute('href', window.URL.createObjectURL(imageBlob, {
-        type: 'image/png'
-      }))
-      element.click()
-      document.body.removeChild(element)
-    }
-  </script>
   <canvas id="target"></canvas>
   <script src="./cloud1.js"></script>
   <script src="./water1.js"></script>

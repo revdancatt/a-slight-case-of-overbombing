@@ -1,11 +1,12 @@
-/* global fxrand cloud1 water1 Image fetch createImageBitmap */
+/* global fxrand fxhash cloud1 water1 Image fetch createImageBitmap */
 const ratio = 1.41
 const features = {}
-const startTime = new Date().getTime()
 let lastTick = new Date().getTime()
 let timePassed = 0
 let speedMod = 1
-let goingDown = true
+let paused = false
+let highRes = false
+let goingDown = false
 let sunMoonPhase = 'sun'
 let lastSunPosition = null
 
@@ -396,7 +397,7 @@ C = Sea`)
   for (const i in features.land) {
     //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'L') {
-      for (land of features.strips[i]) {
+      for (const land of features.strips[i]) {
         land.darkness = --landCount
       }
     }
@@ -440,7 +441,6 @@ C = Sea`)
     }
   }
 
-
   /* #########################################################################
    *
    * EXTRAS
@@ -464,16 +464,16 @@ C = Sea`)
     let landStartHeight = 0
     let landEndHeight = 0
 
-    //  Go through the lowest sky strip    
-    for (cloud of features.strips[sunHeight - 1]) {
+    //  Go through the lowest sky strip
+    for (const cloud of features.strips[sunHeight - 1]) {
       skyStartHeight += cloud.start
       skyEndHeight += cloud.end
     }
     skyStartHeight /= features.strips[sunHeight - 1].length
     skyEndHeight /= features.strips[sunHeight - 1].length
 
-    //  Same again with the land 
-    for (land of features.strips[sunHeight]) {
+    //  Same again with the land
+    for (const land of features.strips[sunHeight]) {
       landStartHeight += (1 - land.start)
       landEndHeight += (1 - land.end)
     }
@@ -517,10 +517,20 @@ const layoutCanvas = async () => {
     cWidth = wHeight / ratio
   }
   cHeight = Math.floor(cHeight / 8) * 8
+  let bmWidth = cWidth
+
   const canvas = document.getElementById('target')
-  canvas.width = cWidth
-  canvas.height = cHeight
+  if (highRes) {
+    canvas.height = 4096
+    canvas.width = 4096 / ratio
+    bmWidth = 4096 / ratio
+  } else {
+    canvas.width = cWidth
+    canvas.height = cHeight
+  }
   canvas.style.position = 'absolute'
+  canvas.style.width = `${cWidth}px`
+  canvas.style.height = `${cHeight}px`
   canvas.style.left = `${(wWidth - cWidth) / 2}px`
   canvas.style.top = `${(wHeight - cHeight) / 2}px`
 
@@ -530,7 +540,7 @@ const layoutCanvas = async () => {
   let base64Response = await fetch(cloud1)
   let blob = await base64Response.blob()
   features.cloud1 = await createImageBitmap(blob, 0, 0, 512, 512, {
-    resizeWidth: canvas.width / 6,
+    resizeWidth: bmWidth / 6,
     resizeQuality: 'medium'
   })
 
@@ -540,7 +550,7 @@ const layoutCanvas = async () => {
   base64Response = await fetch(water1)
   blob = await base64Response.blob()
   features.water1 = await createImageBitmap(blob, 0, 0, 1024, 512, {
-    resizeWidth: canvas.width / 1,
+    resizeWidth: bmWidth / 1,
     resizeQuality: 'medium'
   })
 }
@@ -551,7 +561,6 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
   const diff = timePassed
 
   let start = null
-  let midd = null
   let end = null
   let cmodmod = 1
   if (cloud.mode === 'half') cmodmod = 2
@@ -559,13 +568,11 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
   if (!cloud.flipped) {
     edge += stripSize
     start = edge + (stripSize * -1) * cloud.start
-    midd = edge + (stripSize * -1) * cloud.middle
     end = edge + (stripSize * -1) * cloud.end
   }
 
   if (cloud.flipped) {
     start = edge + (stripSize * 1) * cloud.start * 0.8
-    midd = edge + (stripSize * 1) * cloud.middle * 0.8
     end = edge + (stripSize * 1) * cloud.end * 0.8
   }
 
@@ -674,7 +681,6 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
   let y = null
   for (let l = 0; l <= 2; l++) {
     if (l === 0 || (l === 1 && land.textured) || l === 2) {
-
       ctx.fillStyle = features.palettes[features.country][land.colour]
       //  Set to default source over
       ctx.globalCompositeOperation = 'source-over'
@@ -683,7 +689,7 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
       //  If we are on the third pass then add the darkness in
       if (l === 2) {
         ctx.fillStyle = 'black'
-        ctx.fillStyle = features.palettes[features.country]['shade']
+        ctx.fillStyle = features.palettes[features.country].shade
         ctx.globalAlpha = 0.08 * land.darkness
       }
 
@@ -735,21 +741,20 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
 }
 
 const drawSun = (ctx, sun, width, stripSize) => {
-
-  let sunLevel = stripSize * sun.strip + (stripSize * 1.5 * Math.sin(timePassed / 100000))
+  const sunLevel = stripSize * sun.strip + (stripSize * 1.5 * Math.sin(timePassed / 100000))
   let sizeMod = 1
   if (sunMoonPhase !== 'sun') sizeMod = 0.66
 
   ctx.fillStyle = features.palettes[features.country].dark
-  ctx.beginPath();
-  ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * .8, 0, 2 * Math.PI);
+  ctx.beginPath()
+  ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * 0.8, 0, 2 * Math.PI)
   ctx.fill()
 
   ctx.fillStyle = 'white'
   ctx.globalAlpha = 0.25
   if (sunMoonPhase !== 'sun') ctx.globalAlpha = 0.75
-  ctx.beginPath();
-  ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * .8, 0, 2 * Math.PI);
+  ctx.beginPath()
+  ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * 0.8, 0, 2 * Math.PI)
   ctx.fill()
 
   ctx.globalAlpha = 1.0
@@ -761,7 +766,7 @@ const drawCanvas = async () => {
 
   //  update the time passed
   //  We do it this way so we can speed up time if needed.
-  timePassed += (new Date().getTime() - lastTick) * speedMod
+  if (!paused) timePassed -= (new Date().getTime() - lastTick) * speedMod * (1 * (1 + Math.abs(Math.sin(timePassed / 100000))))
   lastTick = new Date().getTime()
 
   ctx.globalCompositeOperation = 'source-over'
@@ -775,7 +780,7 @@ const drawCanvas = async () => {
   if (lastSunPosition !== null) {
     const darkThreshold = 0.1
     if (lastSunPosition > darkThreshold || sunMoonPhase !== 'sun') {
-      darkenBy = (lastSunPosition - darkThreshold) / (1 - darkThreshold)
+      let darkenBy = (lastSunPosition - darkThreshold) / (1 - darkThreshold)
       if (sunMoonPhase !== 'sun') darkenBy = (1 - darkThreshold) / (1 - darkThreshold)
       ctx.globalCompositeOperation = 'darken'
       ctx.globalAlpha = darkenBy
@@ -926,17 +931,17 @@ const drawCanvas = async () => {
 
   //  Do the saturation
   if (lastSunPosition > satThreshold || sunMoonPhase === 'moon') {
-    saturationBy = (lastSunPosition - satThreshold) / (1 - satThreshold)
+    let saturationBy = (lastSunPosition - satThreshold) / (1 - satThreshold)
     if (sunMoonPhase === 'moon') saturationBy = (1 - satThreshold) / (1 - satThreshold)
 
     ctx.globalCompositeOperation = 'saturation'
-    ctx.globalAlpha = saturationBy * .9
+    ctx.globalAlpha = saturationBy * 0.9
     ctx.fillStyle = '#999999'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
 
   if (lastSunPosition > darkThreshold) {
-    darkenBy = (lastSunPosition - darkThreshold) / (1 - darkThreshold)
+    const darkenBy = (lastSunPosition - darkThreshold) / (1 - darkThreshold)
     ctx.globalCompositeOperation = 'overlay'
     ctx.globalAlpha = darkenBy * 0.8
     ctx.fillStyle = '#000000'
@@ -954,4 +959,45 @@ init()
 window.addEventListener('resize', async () => {
   await layoutCanvas()
   drawCanvas()
+})
+
+const autoDownloadCanvas = async (showHash = false) => {
+  const element = document.createElement('a')
+  element.setAttribute('download', `Landscape_${fxhash}`)
+  element.style.display = 'none'
+  document.body.appendChild(element)
+  let imageBlob = null
+  imageBlob = await new Promise(resolve => document.getElementById('target').toBlob(resolve, 'image/png'))
+  element.setAttribute('href', window.URL.createObjectURL(imageBlob, {
+    type: 'image/png'
+  }))
+  element.click()
+  document.body.removeChild(element)
+}
+
+document.addEventListener('keypress', async (e) => {
+  e = e || window.event
+
+  //  Speed up
+  if (e.key === '.') {
+    speedMod *= 2
+    if (speedMod > 32) speedMod = 32
+  }
+  //  Slow down
+  if (e.key === ',') {
+    speedMod /= 2
+    if (speedMod < 1) speedMod = 1
+  }
+  // Pause
+  if (e.key === ' ') {
+    paused = !paused
+  }
+  // Save
+  if (e.key === 's') autoDownloadCanvas()
+  //   Toggle highres mode
+  if (e.key === 'h') {
+    highRes = !highRes
+    await layoutCanvas()
+    drawCanvas()
+  }
 })
