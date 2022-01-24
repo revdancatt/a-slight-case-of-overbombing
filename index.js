@@ -9,14 +9,16 @@ let highRes = false
 let goingDown = false
 let sunMoonPhase = 'sun'
 let lastSunPosition = null
+let currentPalette = 1
+const altPalette = 2
+const vaporPalette = 3
 
 const makeFeatures = () => {
   //  These are the combinations of the land we can get, along with the % chance of getting it picked
   const lands = {
-    SSCC: 0,
-    SLLC: 0,
-    SSLC: 100,
-    SLCC: 0
+    SLLC: 33,
+    SSLC: 34,
+    SLCC: 33
   }
   /*
   const lands = {
@@ -33,28 +35,82 @@ const makeFeatures = () => {
 
   const palettes = {
     England: {
-      shade: '#800000',
-      dark: '#F30000',
-      medium: '#F37878',
-      light: '#F3B6B6'
+      shade: '#65041E',
+      dark: '#AB0733',
+      medium: '#BD0419',
+      light: '#FC0000'
     },
     Wales: {
       shade: '#6B2D12',
-      dark: '#D95C24',
+      dark: '#F78D00',
       medium: '#E8A730',
       light: '#F1D726'
     },
     Scotland: {
       shade: '#212F80',
-      dark: '#425EFF',
-      medium: '#A1AFFF',
-      light: '#D9DEFF'
+      dark: '#4630CD',
+      medium: '#3633DD',
+      light: '#5771FF'
     },
     Ireland: {
-      shade: '#00691D',
-      dark: '#00D13A',
-      medium: '#69D185',
-      light: '#9DD1AB'
+      shade: '#0000FF',
+      dark: '#008C28',
+      medium: '#00B441',
+      light: '#78D100'
+    }
+  }
+
+  //  Landscape
+  const altPalette1 = {
+    S: {
+      shade: '#212F80',
+      dark: '#98a1cb',
+      medium: '#d1c1e0',
+      light: '#ffc5d1'
+    },
+    L: {
+      shade: '#0000FF',
+      dark: '#008C28',
+      medium: '#00B441',
+      light: '#78D100'
+    },
+    C: {
+      shade: '#6c9cd2',
+      dark: '#03045e',
+      medium: '#00b4d8',
+      light: '#caf0f8'
+    },
+    sun: {
+      dark: '#FFD460',
+      medium: '#FFD460',
+      light: '#FFD460'
+    }
+  }
+
+  //  Vaporwave 1
+  const altPalette2 = {
+    S: {
+      shade: '#212F80',
+      dark: '#E83070',
+      medium: '#F9767A',
+      light: '#F6C03B'
+    },
+    L: {
+      shade: '#000000',
+      dark: '#56027A',
+      medium: '#B402B7',
+      light: '#E954E0'
+    },
+    C: {
+      shade: '#000000',
+      dark: '#3B8DBF',
+      medium: '#4AB9EB',
+      light: '#78FFFF'
+    },
+    sun: {
+      dark: '#FFFF00',
+      medium: '#FFFF00',
+      light: '#FFFF00'
     }
   }
 
@@ -109,12 +165,15 @@ C = Sea`)
   if (countryChance < 0.75) country = 'Wales'
   if (countryChance < 0.5) country = 'Scotland'
   if (countryChance < 0.25) country = 'Ireland'
-  // country = 'Scotland'
+  // country = 'Ireland'
 
   features.land = thisLand
   features.country = country
   features.palette = palette
   features.palettes = palettes
+  features.altPalette1 = altPalette1
+  features.altPalette2 = altPalette2
+
   features.strips = [
     [],
     [],
@@ -581,6 +640,9 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
   for (let l = 0; l <= 1; l++) {
     if (l === 0 || (l === 1 && cloud.textured)) {
       ctx.fillStyle = features.palettes[features.country][cloud.colour]
+      if (currentPalette === 2) ctx.fillStyle = features.altPalette1.S[cloud.colour]
+      if (currentPalette === 3) ctx.fillStyle = features.altPalette2.S[cloud.colour]
+
       //  Set to default source over
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
@@ -639,6 +701,9 @@ const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
     if (l === 0 || (l === 1 && wave.textured)) {
       //  Standard fill stuff
       ctx.fillStyle = features.palettes[features.country][wave.colour]
+      if (currentPalette === 2) ctx.fillStyle = features.altPalette1.C[wave.colour]
+      if (currentPalette === 3) ctx.fillStyle = features.altPalette2.C[wave.colour]
+
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
 
@@ -682,6 +747,9 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
   for (let l = 0; l <= 2; l++) {
     if (l === 0 || (l === 1 && land.textured) || l === 2) {
       ctx.fillStyle = features.palettes[features.country][land.colour]
+      if (currentPalette === 2) ctx.fillStyle = features.altPalette1.L[land.colour]
+      if (currentPalette === 3) ctx.fillStyle = features.altPalette2.L[land.colour]
+
       //  Set to default source over
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
@@ -746,6 +814,12 @@ const drawSun = (ctx, sun, width, stripSize) => {
   if (sunMoonPhase !== 'sun') sizeMod = 0.66
 
   ctx.fillStyle = features.palettes[features.country].dark
+  if (features.country === 'England') ctx.fillStyle = features.palettes[features.country].light
+  if (features.country === 'Ireland') ctx.fillStyle = features.palettes[features.country].light
+
+  if (currentPalette === 2) ctx.fillStyle = features.altPalette1.sun.light
+  if (currentPalette === 3) ctx.fillStyle = features.altPalette2.sun.light
+
   ctx.beginPath()
   ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * 0.8, 0, 2 * Math.PI)
   ctx.fill()
@@ -755,7 +829,9 @@ const drawSun = (ctx, sun, width, stripSize) => {
   if (sunMoonPhase !== 'sun') ctx.globalAlpha = 0.75
   ctx.beginPath()
   ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * 0.8, 0, 2 * Math.PI)
-  ctx.fill()
+  if (currentPalette === 1 || sunMoonPhase !== 'sun') {
+    ctx.fill()
+  }
 
   ctx.globalAlpha = 1.0
 }
@@ -773,6 +849,22 @@ const drawCanvas = async () => {
   ctx.globalAlpha = 1.0
   ctx.fillStyle = '#FFF'
   ctx.fillRect(0, 0, canvas.width, canvas.height)
+
+  //  If we have an alternate palette then we may change the sky here
+  if (currentPalette === 2) {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, (features.shore - 1) * canvas.height / 4)
+    skyGrad.addColorStop(0, '#a8dadc')
+    skyGrad.addColorStop(1, '#f1faee')
+    ctx.fillStyle = skyGrad
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+  if (currentPalette === 3) {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, (features.shore - 1) * canvas.height / 4)
+    skyGrad.addColorStop(0, '#F72F96')
+    skyGrad.addColorStop(1, '#2C2A56')
+    ctx.fillStyle = skyGrad
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
 
   //  Work out how to colour the sky
   const satThreshold = 0.4
@@ -835,6 +927,9 @@ const drawCanvas = async () => {
 
   //   NOW TO THE SEA
   ctx.fillStyle = features.palettes[features.country].dark
+  if (currentPalette === 2) ctx.fillStyle = features.altPalette1.C.dark
+  if (currentPalette === 2) ctx.fillStyle = features.altPalette2.C.dark
+
   for (let strip = 3; strip >= 0; strip--) {
     //  Just to make things a little easier, let's work out where our
     //  corners are
@@ -854,6 +949,8 @@ const drawCanvas = async () => {
       //  Draw the rectangle
       if (strip === 3) {
         ctx.fillStyle = features.palettes[features.country].dark
+        if (currentPalette === 2) ctx.fillStyle = features.altPalette1.C.dark
+        if (currentPalette === 3) ctx.fillStyle = features.altPalette2.C.dark
         ctx.globalCompositeOperation = 'source-over'
         ctx.globalAlpha = 1.0
         ctx.fillRect(0, canvas.height / 4 * strip, canvas.width, canvas.height / 4)
@@ -880,8 +977,19 @@ const drawCanvas = async () => {
   }
   //  Now draw a gradient from the shoreline down to the bottom of the image
   const seaGrad = ctx.createLinearGradient(0, features.shore * canvas.height / 4, 0, canvas.height)
-  seaGrad.addColorStop(0, features.palettes[features.country].dark)
-  seaGrad.addColorStop(1, features.palettes[features.country].light)
+  if (currentPalette === 1) {
+    seaGrad.addColorStop(0, features.palettes[features.country].dark)
+    seaGrad.addColorStop(1, features.palettes[features.country].light)
+  }
+  if (currentPalette === 2) {
+    seaGrad.addColorStop(0, features.altPalette1.C.dark)
+    seaGrad.addColorStop(1, features.altPalette1.C.light)
+  }
+  if (currentPalette === 3) {
+    seaGrad.addColorStop(0, features.altPalette2.L.dark)
+    seaGrad.addColorStop(1, features.altPalette2.C.light)
+  }
+
   ctx.fillStyle = seaGrad
   ctx.globalAlpha = 0.75
   ctx.globalCompositeOperation = 'darker'
@@ -991,6 +1099,11 @@ document.addEventListener('keypress', async (e) => {
   // Pause
   if (e.key === ' ') {
     paused = !paused
+  }
+  // cycle palettes
+  if (e.key === 'p') {
+    currentPalette++
+    if (currentPalette > 3) currentPalette = 1
   }
   // Save
   if (e.key === 's') autoDownloadCanvas()
