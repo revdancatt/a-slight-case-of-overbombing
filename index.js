@@ -7,7 +7,7 @@ let timePassed = 0
 let speedMod = 1
 let paused = false
 let highRes = false
-let showNoise = true
+let showNoise = false
 let goingDown = false
 let sunMoonPhase = 'sun'
 let lastSunPosition = null
@@ -17,14 +17,31 @@ const vaporPalette = 3
 let cloudLoaded = false
 let waterLoaded = false
 let noiseLoaded = false
+window.$fxhashFeatures = {}
 
 const makeFeatures = () => {
   //  These are the combinations of the land we can get, along with the % chance of getting it picked
   const lands = {
-    SLLC: 33,
-    SSLC: 34,
-    SLCC: 33
+    SLLC: 25,
+    SSLC: 50,
+    SLCC: 25
   }
+
+  const landscape = {
+    SLLC: 'Sky, Land, Land, Sea',
+    SSLC: 'Sky, Sky, Land, Sea',
+    SLCC: 'Sky, Land, Sea, Sea'
+  }
+
+  const paletteName = {
+    1: 'Monochromatic',
+    2: 'Landscape',
+    3: 'Vapor',
+    4: 'Desolate',
+    5: 'Abstract',
+    6: 'Ice'
+  }
+
   /*
   const lands = {
     'SSCC': 100
@@ -119,6 +136,87 @@ const makeFeatures = () => {
     }
   }
 
+  //  Desolate
+  const altPalette3 = {
+    S: {
+      shade: '#212F80',
+      dark: '#2C3E51',
+      medium: '#759DBE',
+      light: '#CBDEE7'
+    },
+    L: {
+      shade: '#5B5534',
+      dark: '#5B5534',
+      medium: '#7F734B',
+      light: '#A69A72'
+    },
+    C: {
+      shade: '#8CB4B7',
+      dark: '#5E818D',
+      medium: '#75B19F',
+      light: '#8CB4B7'
+    },
+    sun: {
+      dark: '#EDEDC1',
+      medium: '#EDEDC1',
+      light: '#EDEDC1'
+    }
+  }
+
+  //  Absract
+  const altPalette4 = {
+    S: {
+      shade: '#212F80',
+      dark: '#2C3E51',
+      medium: '#B5182A',
+      light: '#587165'
+    },
+    L: {
+      shade: '#5B5534',
+      dark: '#8642C3',
+      medium: '#D28F47',
+      light: '#A69A72'
+    },
+    C: {
+      shade: '#FFFF00',
+      dark: '#660000',
+      medium: '#339900',
+      light: '#A3B9BA'
+    },
+    sun: {
+      dark: '#EDEDC1',
+      medium: '#EDEDC1',
+      light: '#EDCC3D'
+    }
+  }
+
+  //  Ice
+  const altPalette5 = {
+    S: {
+      shade: '#212F80',
+      dark: '#B4BFCE',
+      medium: '#DEE1E8',
+      light: '#E4E7ED'
+    },
+    L: {
+      shade: '#CFE7F4',
+      dark: '#769AAF',
+      medium: '#9AB5C4',
+      light: '#CFE7F4'
+    },
+    C: {
+      shade: '#E4E7ED',
+      dark: '#E4E7ED',
+      medium: '#7DB3BA',
+      light: '#A6D9D4'
+    },
+    sun: {
+      dark: '#EDEDC1',
+      medium: '#EDEDC1',
+      light: '#F7F5F5'
+    }
+  }
+
   const runSimulation = false
   let dropSize = 1
   let simTimes = 1
@@ -170,7 +268,19 @@ C = Sea`)
   if (countryChance < 0.75) country = 'Wales'
   if (countryChance < 0.5) country = 'Scotland'
   if (countryChance < 0.25) country = 'Ireland'
-  // country = 'Ireland'
+
+  //  Work out if we should pick a different palette
+  if (fxrand() < 0.15) {
+    const palChoice = fxrand()
+    currentPalette = 2
+    if (palChoice < 0.6) currentPalette = 3
+    if (palChoice < 0.3) currentPalette = 4
+    if (palChoice < 0.1) currentPalette = 6
+  }
+  //  If we have the vaporwave or ice pallet then turn noise on my default
+  if (currentPalette === 3 || currentPalette === 6) showNoise = true
+  //  Have a chance to toggle the noise
+  if (fxrand() < 0.18) showNoise = !showNoise
 
   features.land = thisLand
   features.country = country
@@ -178,6 +288,17 @@ C = Sea`)
   features.palettes = palettes
   features.altPalette1 = altPalette1
   features.altPalette2 = altPalette2
+  features.altPalette3 = altPalette3
+  features.altPalette4 = altPalette4
+  features.altPalette5 = altPalette5
+
+  //  Set the limited 
+  window.$fxhashFeatures = {
+    country: features.country,
+    landscape: landscape[features.land],
+    palette: paletteName[currentPalette],
+    noisy: showNoise
+  }
 
   features.strips = [
     [],
@@ -562,7 +683,6 @@ C = Sea`)
     features.sunPosition = sunPosition
   }
 
-  console.table(features)
 }
 
 makeFeatures()
@@ -660,6 +780,9 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
       ctx.fillStyle = features.palettes[features.country][cloud.colour]
       if (currentPalette === 2) ctx.fillStyle = features.altPalette1.S[cloud.colour]
       if (currentPalette === 3) ctx.fillStyle = features.altPalette2.S[cloud.colour]
+      if (currentPalette === 4) ctx.fillStyle = features.altPalette3.S[cloud.colour]
+      if (currentPalette === 5) ctx.fillStyle = features.altPalette4.S[cloud.colour]
+      if (currentPalette === 6) ctx.fillStyle = features.altPalette5.S[cloud.colour]
 
       //  Set to default source over
       ctx.globalCompositeOperation = 'source-over'
@@ -717,6 +840,9 @@ const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
       ctx.fillStyle = features.palettes[features.country][wave.colour]
       if (currentPalette === 2) ctx.fillStyle = features.altPalette1.C[wave.colour]
       if (currentPalette === 3) ctx.fillStyle = features.altPalette2.C[wave.colour]
+      if (currentPalette === 4) ctx.fillStyle = features.altPalette3.C[wave.colour]
+      if (currentPalette === 5) ctx.fillStyle = features.altPalette4.C[wave.colour]
+      if (currentPalette === 6) ctx.fillStyle = features.altPalette5.C[wave.colour]
 
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
@@ -759,10 +885,13 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
 
   let y = null
   for (let l = 0; l <= 3; l++) {
-    if (l === 0 || (l === 1 && land.textured) || l === 2 || l === 3) {
+    if (l === 0 || (l === 1 && land.textured) || l === 2 || (l === 3 && showNoise)) {
       ctx.fillStyle = features.palettes[features.country][land.colour]
       if (currentPalette === 2) ctx.fillStyle = features.altPalette1.L[land.colour]
       if (currentPalette === 3) ctx.fillStyle = features.altPalette2.L[land.colour]
+      if (currentPalette === 4) ctx.fillStyle = features.altPalette3.L[land.colour]
+      if (currentPalette === 5) ctx.fillStyle = features.altPalette4.L[land.colour]
+      if (currentPalette === 6) ctx.fillStyle = features.altPalette5.L[land.colour]
 
       //  Set to default source over
       ctx.globalCompositeOperation = 'source-over'
@@ -775,13 +904,17 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
         ctx.globalAlpha = 0.08 * land.darkness
       }
 
-      if (l === 3) {
+      if (l === 3 && showNoise) {
         ctx.fillStyle = features.noise1pattern
         ctx.globalAlpha = 1
         ctx.globalCompositeOperation = 'soft-light'
         if (currentPalette === 3) {
           ctx.globalAlpha = 0.5
           ctx.globalCompositeOperation = 'multiply'
+        }
+        if (currentPalette === 5) {
+          ctx.globalAlpha = 0.5
+          ctx.globalCompositeOperation = 'hard-light'
         }
       }
 
@@ -824,7 +957,7 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
       ctx.lineTo(right, shore)
       ctx.closePath()
 
-      if (l === 3) {
+      if (l === 3 && showNoise) {
         ctx.save()
         if (start < end) {
           ctx.translate(0, start)
@@ -833,7 +966,7 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
         }
       }
       ctx.fill()
-      if (l === 3) {
+      if (l === 3 && showNoise) {
         ctx.restore()
       }
       //  Reset it back
@@ -854,6 +987,9 @@ const drawSun = (ctx, sun, width, stripSize) => {
 
   if (currentPalette === 2) ctx.fillStyle = features.altPalette1.sun.light
   if (currentPalette === 3) ctx.fillStyle = features.altPalette2.sun.light
+  if (currentPalette === 4) ctx.fillStyle = features.altPalette3.sun.light
+  if (currentPalette === 5) ctx.fillStyle = features.altPalette4.sun.light
+  if (currentPalette === 6) ctx.fillStyle = features.altPalette5.sun.light
 
   ctx.beginPath()
   ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * 0.8, 0, 2 * Math.PI)
@@ -897,6 +1033,20 @@ const drawCanvas = async () => {
     const skyGrad = ctx.createLinearGradient(0, 0, 0, (features.shore - 1) * canvas.height / 4)
     skyGrad.addColorStop(0, '#F72F96')
     skyGrad.addColorStop(1, '#2C2A56')
+    ctx.fillStyle = skyGrad
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+  if (currentPalette === 4) {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, (features.shore - 1) * canvas.height / 4)
+    skyGrad.addColorStop(0, '#404160')
+    skyGrad.addColorStop(1, '#405160')
+    ctx.fillStyle = skyGrad
+    ctx.fillRect(0, 0, canvas.width, canvas.height)
+  }
+  if (currentPalette === 5) {
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, (features.shore - 1) * canvas.height / 4)
+    skyGrad.addColorStop(0, '#CEDDE6')
+    skyGrad.addColorStop(1, '#DCECF6')
     ctx.fillStyle = skyGrad
     ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
@@ -952,7 +1102,10 @@ const drawCanvas = async () => {
   //   NOW TO THE SEA
   ctx.fillStyle = features.palettes[features.country].dark
   if (currentPalette === 2) ctx.fillStyle = features.altPalette1.C.dark
-  if (currentPalette === 2) ctx.fillStyle = features.altPalette2.C.dark
+  if (currentPalette === 3) ctx.fillStyle = features.altPalette2.C.dark
+  if (currentPalette === 4) ctx.fillStyle = features.altPalette3.C.dark
+  if (currentPalette === 5) ctx.fillStyle = features.altPalette4.C.dark
+  if (currentPalette === 6) ctx.fillStyle = features.altPalette5.C.dark
 
   for (let strip = 3; strip >= 0; strip--) {
     //  Just to make things a little easier, let's work out where our
@@ -975,6 +1128,10 @@ const drawCanvas = async () => {
         ctx.fillStyle = features.palettes[features.country].dark
         if (currentPalette === 2) ctx.fillStyle = features.altPalette1.C.dark
         if (currentPalette === 3) ctx.fillStyle = features.altPalette2.C.dark
+        if (currentPalette === 4) ctx.fillStyle = features.altPalette3.C.dark
+        if (currentPalette === 5) ctx.fillStyle = features.altPalette4.C.dark
+        if (currentPalette === 6) ctx.fillStyle = features.altPalette5.C.dark
+
         ctx.globalCompositeOperation = 'source-over'
         ctx.globalAlpha = 1.0
         ctx.fillRect(0, canvas.height / 4 * strip, canvas.width, canvas.height / 4)
@@ -1004,12 +1161,24 @@ const drawCanvas = async () => {
     seaGrad.addColorStop(0, features.altPalette2.L.dark)
     seaGrad.addColorStop(1, features.altPalette2.C.light)
   }
+  if (currentPalette === 4) {
+    seaGrad.addColorStop(0, features.altPalette3.C.dark)
+    seaGrad.addColorStop(1, features.altPalette3.C.light)
+  }
+  if (currentPalette === 5) {
+    seaGrad.addColorStop(0, features.altPalette4.C.dark)
+    seaGrad.addColorStop(1, features.altPalette4.C.light)
+  }
+  if (currentPalette === 6) {
+    seaGrad.addColorStop(0, features.altPalette5.C.dark)
+    seaGrad.addColorStop(1, features.altPalette5.C.light)
+  }
 
   ctx.fillStyle = seaGrad
   ctx.globalAlpha = 1
   ctx.globalCompositeOperation = 'darken'
-  ctx.fillRect(0, features.shore * canvas.height / 4, canvas.width, canvas.height)
-  ctx.globalCompositeOperation = 'lighter'
+  if (currentPalette !== 4) ctx.fillRect(0, features.shore * canvas.height / 4, canvas.width, canvas.height)
+  ctx.globalCompositeOperation = 'source-over'
   ctx.globalAlpha = 1.0
 
   //   FINALLY THE LAND
@@ -1049,8 +1218,6 @@ const drawCanvas = async () => {
     }
   }
   lastSunPosition = newSunPosition
-
-  // console.log(lastSunPosition)
 
   //  Do the saturation
   if (lastSunPosition > satThreshold || sunMoonPhase === 'moon') {
@@ -1109,10 +1276,14 @@ document.addEventListener('keypress', async (e) => {
   if (e.key === ' ') {
     paused = !paused
   }
+  // Noise
+  if (e.key === 'n') {
+    showNoise = !showNoise
+  }
   // cycle palettes
   if (e.key === 'p') {
     currentPalette++
-    if (currentPalette > 3) currentPalette = 1
+    if (currentPalette > 6) currentPalette = 1
   }
   // Save
   if (e.key === 's') autoDownloadCanvas()
@@ -1122,6 +1293,26 @@ document.addEventListener('keypress', async (e) => {
     await layoutCanvas()
     drawCanvas()
   }
+})
+
+let timeout = null
+let lastTap = new Date().getTime()
+document.addEventListener('touchend', (event) => {
+  const currentTime = new Date().getTime()
+  const tapLength = currentTime - lastTap
+  clearTimeout(timeout)
+  if (tapLength < 500 && tapLength > 0) {
+    speedMod *= 2
+    if (speedMod > 32) speedMod = 1
+    event.preventDefault()
+  } else {
+    timeout = setTimeout(() => {
+      currentPalette++
+      if (currentPalette > 6) currentPalette = 1
+      clearTimeout(timeout)
+    }, 500);
+  }
+  lastTap = currentTime
 })
 
 //  This preloads the images so we can get access to them
@@ -1168,7 +1359,6 @@ const preloadImages = () => {
 
   if (cloudLoaded && waterLoaded && noiseLoaded) {
     clearInterval(preloadImagesTmr)
-    console.log(new Date().getTime() - startTime + 'ms')
     init()
   }
 
@@ -1179,3 +1369,5 @@ const preloadImages = () => {
     init()
   }
 }
+
+console.table(window.$fxhashFeatures)
