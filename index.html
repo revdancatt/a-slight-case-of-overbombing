@@ -7,6 +7,7 @@
     //---- do not edit the following code (you can indent as you wish)
     let alphabet = "123456789abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ"
     var fxhash = "oo" + Array(49).fill(0).map(_ => alphabet[(Math.random() * alphabet.length) | 0]).join('')
+    // var fxhash = 'oor8BvA8nPyCPg9zPsLsEnrfy2NyiDhX68gCiAMs3rLUHdyywJo'
     let b58dec = (str) => str.split('').reduce((p, c, i) => p + alphabet.indexOf(c) * (Math.pow(alphabet.length, str
       .length - i - 1)), 0)
     let fxhashTrunc = fxhash.slice(2)
@@ -36,10 +37,17 @@
 
 <body>
   <canvas id="target"></canvas>
-  <script src="./cloud1.js"></script>
-  <script src="./water1.js"></script>
   <script src="./index.js"></script>
-
+  <script>
+    let preloadImagesTmr = null
+    document.addEventListener('DOMContentLoaded', (event) => {
+      preloadImages()
+      preloadImagesTmr = setInterval(() => {
+        preloadImages()
+      }, 333);
+      // setTimeout(init, 2000)
+    })
+  </script>
 </body>
 
 </html>
