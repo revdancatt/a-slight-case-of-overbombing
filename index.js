@@ -683,6 +683,100 @@ C = Sea`)
     features.sunPosition = sunPosition
   }
 
+  /* #########################################################################
+   *
+   * Scenery
+   *
+   * ###################################################################### */
+  features.scenery = []
+  const usedPositions = [4]
+  //  Decide if we are going to put something onto the shoreline
+  let hasShorelineScenery = false
+  if (fxrand() < 0.75) {
+    hasShorelineScenery = true
+    const newScenery = {
+      type: 'house',
+      position: 4,
+      strip: features.shore,
+      light: 'left',
+      isShoreline: true,
+      door: 'none'
+    }
+    //  Maybe pick something else
+    const treeChance = fxrand()
+    if (treeChance < 0.5) newScenery.type = 'tree1'
+    if (treeChance < 0.25) newScenery.type = 'tree2'
+    newScenery.count = Math.floor(fxrand() * 3 + 1) + Math.floor(fxrand() * 3 + 1)
+
+    if (newScenery.type === 'house') {
+      if (fxrand() < 0.5) {
+        newScenery.door = 'left'
+        if (fxrand() < 0.5) newScenery.door = 'right'
+      }
+    }
+
+    //  Work out where to place it, that hasn't been placed already
+    while (usedPositions.includes(newScenery.position)) newScenery.position = Math.floor(fxrand() * 7) + 1
+    usedPositions.push(newScenery.position)
+    //  Should the light come from the left or right?
+    if (features.sunPosition.x > newScenery.position / 8) newScenery.light = 'right'
+    features.scenery.push(newScenery)
+  }
+
+  //  Now go through the flat lands, working out if we want to place the things on there
+  for (const s in features.strips) {
+    for (const strip of features.strips[s]) {
+      if (strip.mode === 'half') {
+        //  Only do the thing if the flat part isn't along the shoreline
+        if (!((parseInt(s, 10) + 1) === features.shore && strip.middle === 1 && hasShorelineScenery)) {
+          if (fxrand() < 0.5) {
+            const newScenery = {
+              type: 'house',
+              position: 4,
+              strip: s,
+              middle: strip.middle,
+              light: 'left',
+              isShoreline: false
+            }
+            //  Maybe pick something else
+            const treeChance = fxrand()
+            if (treeChance < 0.5) newScenery.type = 'tree1'
+            if (treeChance < 0.25) newScenery.type = 'tree2'
+            newScenery.count = Math.floor(fxrand() * 3 + 1) + Math.floor(fxrand() * 3 + 1)
+
+            //  Work out where to place it, that hasn't been placed already
+            //  If we have the flat part on the left
+            if (strip.middle === strip.start && !(usedPositions.includes(1) && usedPositions.includes(2) && usedPositions.includes(3))) {
+              while (usedPositions.includes(newScenery.position)) newScenery.position = Math.floor(fxrand() * 3) + 1
+              usedPositions.push(newScenery.position)
+              //  Should the light come from the left or right?
+              if (features.sunPosition.x > newScenery.position / 8) newScenery.light = 'right'
+              strip.scenery = newScenery
+              features.scenery.push(newScenery)
+            }
+            //  If we have the flat part on the right
+            if (strip.middle === strip.end && !(usedPositions.includes(5) && usedPositions.includes(6) && usedPositions.includes(7))) {
+              while (usedPositions.includes(newScenery.position)) newScenery.position = Math.floor(fxrand() * 3) + 5
+              usedPositions.push(newScenery.position)
+              //  Should the light come from the left or right?
+              if (features.sunPosition.x > newScenery.position / 8) newScenery.light = 'right'
+              strip.scenery = newScenery
+              features.scenery.push(newScenery)
+            }
+          }
+        }
+      }
+    }
+  }
+
+  window.$fxhashFeatures.houses = 0
+  window.$fxhashFeatures.copse = 0
+  features.scenery.forEach((thing) => {
+    if (thing.type === 'house') window.$fxhashFeatures.houses++
+    if (thing.type === 'tree1') window.$fxhashFeatures.copse++
+    if (thing.type === 'tree2') window.$fxhashFeatures.copse++
+  })
+
 }
 
 makeFeatures()
@@ -876,7 +970,7 @@ const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
 }
 
 //  Draw the land for a strip
-const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
+const drawLand = (ctx, canvas, land, stripSize, shore, bottom, left, right, middle) => {
   const start = bottom + (stripSize * land.start)
   const midd = bottom + (stripSize * land.middle)
   const end = bottom + (stripSize * land.end)
@@ -974,6 +1068,14 @@ const drawLand = (ctx, land, stripSize, shore, bottom, left, right, middle) => {
       ctx.globalAlpha = 1.0
     }
   }
+  if (land.scenery) {
+    if (land.scenery.type === 'tree1' || land.scenery.type === 'tree2') {
+      drawTree(ctx, canvas.width, canvas.height, land.scenery)
+    }
+    if (land.scenery.type === 'house') {
+      drawHouse(ctx, canvas.width, canvas.height, land.scenery)
+    }
+  }
 }
 
 const drawSun = (ctx, sun, width, stripSize) => {
@@ -984,7 +1086,6 @@ const drawSun = (ctx, sun, width, stripSize) => {
   ctx.fillStyle = features.palettes[features.country].dark
   if (features.country === 'England') ctx.fillStyle = features.palettes[features.country].light
   if (features.country === 'Ireland') ctx.fillStyle = features.palettes[features.country].light
-
   if (currentPalette === 2) ctx.fillStyle = features.altPalette1.sun.light
   if (currentPalette === 3) ctx.fillStyle = features.altPalette2.sun.light
   if (currentPalette === 4) ctx.fillStyle = features.altPalette3.sun.light
@@ -1005,6 +1106,172 @@ const drawSun = (ctx, sun, width, stripSize) => {
   }
 
   ctx.globalAlpha = 1.0
+}
+
+const drawTree = (ctx, width, height, tree) => {
+  let treeRadius = width / 80
+  if (tree.type === 'tree2') treeRadius *= 0.8
+  const spreadStep = treeRadius * 3
+  const spreadStart = (tree.count - 1) * spreadStep / -2
+  const xPos = width / 8 * tree.position
+  let yPos = height / 4 * tree.strip
+  let trunkBase = height / 4 * tree.strip
+  let yMod = 1
+  if (tree.type === 'tree1') {
+    yPos += (treeRadius * 0.25)
+  }
+  if (tree.type === 'tree2') {
+    yPos -= treeRadius
+    yMod = 2
+  }
+  if (tree.middle) {
+    yPos += (height / 4) * tree.middle
+    trunkBase += (height / 4) * tree.middle
+  }
+
+  //  Now loop through the trees
+  for (let i = 0; i < tree.count; i++) {
+
+    //  Draw the trunk
+    ctx.globalAlpha = 0.8
+    ctx.strokeStyle = '#000'
+    ctx.lineWidth = treeRadius / 2
+    ctx.beginPath()
+    ctx.moveTo(xPos + spreadStart + (spreadStep * i), trunkBase)
+    ctx.lineTo(xPos + spreadStart + (spreadStep * i), yPos - (treeRadius * 2))
+    ctx.stroke()
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0)'
+
+    //  Draw the light side of the tree
+    ctx.globalAlpha = 1.0
+    ctx.fillStyle = features.palettes[features.country].light
+    if (currentPalette === 2) ctx.fillStyle = features.altPalette1.L.light
+    if (currentPalette === 3) ctx.fillStyle = features.altPalette2.L.light
+    if (currentPalette === 4) ctx.fillStyle = features.altPalette3.L.light
+    if (currentPalette === 5) ctx.fillStyle = features.altPalette4.L.light
+    if (currentPalette === 6) ctx.fillStyle = features.altPalette5.L.light
+    ctx.beginPath()
+    if (tree.light === 'left') {
+      ctx.ellipse(xPos + spreadStart + (spreadStep * i), yPos - (treeRadius * 2), treeRadius, treeRadius * yMod, 0, 0.5 * Math.PI, 1.5 * Math.PI)
+    } else {
+      ctx.ellipse(xPos + spreadStart + (spreadStep * i), yPos - (treeRadius * 2), treeRadius, treeRadius * yMod, 0, 1.5 * Math.PI, 0.5 * Math.PI)
+    }
+    ctx.fill()
+
+    ctx.globalAlpha = 0.2
+    ctx.fillStyle = 'white'
+    ctx.fill()
+
+
+    //  Now do the dark half
+    ctx.globalAlpha = 1.0
+    ctx.fillStyle = features.palettes[features.country].dark
+    if (currentPalette === 2) ctx.fillStyle = features.altPalette1.L.dark
+    if (currentPalette === 3) ctx.fillStyle = features.altPalette2.L.dark
+    if (currentPalette === 4) ctx.fillStyle = features.altPalette3.L.dark
+    if (currentPalette === 5) ctx.fillStyle = features.altPalette4.L.dark
+    if (currentPalette === 6) ctx.fillStyle = features.altPalette5.L.dark
+    ctx.beginPath()
+    if (tree.light === 'left') {
+      ctx.ellipse(xPos + spreadStart + (spreadStep * i), yPos - (treeRadius * 2), treeRadius, treeRadius * yMod, 0, 1.5 * Math.PI, 0.5 * Math.PI)
+    } else {
+      ctx.ellipse(xPos + spreadStart + (spreadStep * i), yPos - (treeRadius * 2), treeRadius, treeRadius * yMod, 0, 0.5 * Math.PI, 1.5 * Math.PI)
+    }
+    ctx.fill()
+
+    ctx.globalAlpha = 0.2
+    ctx.fillStyle = 'black'
+    ctx.fill()
+
+  }
+}
+
+const drawHouse = (ctx, width, height, house) => {
+  let houseSize = width / 50
+  const xPos = width / 8 * house.position
+  let yPos = height / 4 * house.strip
+  if (house.middle) yPos += (height / 4) * house.middle
+
+  let medium = features.palettes[features.country].medium
+  if (currentPalette === 2) medium = features.altPalette1.L.medium
+  if (currentPalette === 3) medium = features.altPalette2.L.medium
+  if (currentPalette === 4) medium = features.altPalette3.L.medium
+  if (currentPalette === 5) medium = features.altPalette4.L.medium
+  if (currentPalette === 6) medium = features.altPalette5.L.medium
+
+  ctx.lineWidth = 2
+
+  //  Do the left face
+  ctx.globalAlpha = 1.0
+  ctx.fillStyle = medium
+  ctx.strokeStyle = medium
+
+  ctx.beginPath()
+  ctx.moveTo(xPos - (houseSize * 0.8), yPos)
+  ctx.lineTo(xPos - (houseSize * 0.8), yPos - (houseSize * 0.7))
+  ctx.lineTo(xPos, yPos - (houseSize * 1.2))
+  ctx.lineTo(xPos + (houseSize * 0.8), yPos - (houseSize * 0.7))
+  ctx.lineTo(xPos + (houseSize * 0.8), yPos)
+  ctx.closePath()
+  ctx.fill()
+  ctx.globalAlpha = 0.5
+  if (house.light === 'left') {
+    ctx.fillStyle = 'white'
+  } else {
+    ctx.fillStyle = 'black'
+  }
+  ctx.fill()
+
+  if (house.door === 'left') {
+    ctx.globalAlpha = 1.0
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = width / 200
+    ctx.beginPath()
+    ctx.moveTo(xPos, yPos)
+    ctx.lineTo(xPos, yPos - houseSize * 0.3)
+    ctx.stroke()
+  }
+
+  //  Do the right
+  ctx.globalAlpha = 1.0
+  ctx.fillStyle = medium
+  ctx.strokeStyle = medium
+
+  ctx.beginPath()
+  ctx.moveTo(xPos + (houseSize * 0.8), yPos)
+  ctx.lineTo(xPos + (houseSize * 0.8), yPos - (houseSize * 0.7))
+  ctx.lineTo(xPos + (houseSize * 2), yPos - (houseSize * 0.7))
+  ctx.lineTo(xPos + (houseSize * 2), yPos)
+  ctx.closePath()
+  ctx.fill()
+  ctx.globalAlpha = 0.5
+  if (house.light === 'right') {
+    ctx.fillStyle = 'white'
+  } else {
+    ctx.fillStyle = 'black'
+  }
+  ctx.fill()
+
+  if (house.door === 'right') {
+    ctx.globalAlpha = 1.0
+    ctx.strokeStyle = '#000000'
+    ctx.lineWidth = width / 200
+    ctx.beginPath()
+    ctx.moveTo(xPos + (houseSize * 1.4), yPos)
+    ctx.lineTo(xPos + (houseSize * 1.4), yPos - houseSize * 0.3)
+    ctx.stroke()
+  }
+
+  //  Do the roof
+  ctx.globalAlpha = 1.0
+  ctx.fillStyle = '#000000'
+  ctx.beginPath()
+  ctx.moveTo(xPos, yPos - (houseSize * 1.2))
+  ctx.lineTo(xPos + (houseSize * 2) - (houseSize * 0.8), yPos - (houseSize * 1.2))
+  ctx.lineTo(xPos + (houseSize * 2), yPos - (houseSize * 0.7))
+  ctx.lineTo(xPos + (houseSize * 0.8), yPos - (houseSize * 0.7))
+  ctx.fill()
+
 }
 
 const drawCanvas = async () => {
@@ -1192,7 +1459,7 @@ const drawCanvas = async () => {
 
     if (features.land[strip] === 'L') {
       for (const land of features.strips[strip]) {
-        drawLand(ctx, land, stripSize, shore, bottom, left, right, middle)
+        drawLand(ctx, canvas, land, stripSize, shore, bottom, left, right, middle)
       }
     }
   }
@@ -1219,6 +1486,19 @@ const drawCanvas = async () => {
   }
   lastSunPosition = newSunPosition
 
+  //  Now place the scenery
+  features.scenery.forEach((thing) => {
+    //  Only draw the shoreline
+    if (thing.isShoreline) {
+      if (thing.type === 'tree1' || thing.type === 'tree2') {
+        drawTree(ctx, canvas.width, canvas.height, thing)
+      }
+      if (thing.type === 'house') {
+        drawHouse(ctx, canvas.width, canvas.height, thing)
+      }
+    }
+  })
+
   //  Do the saturation
   if (lastSunPosition > satThreshold || sunMoonPhase === 'moon') {
     let saturationBy = (lastSunPosition - satThreshold) / (1 - satThreshold)
@@ -1239,6 +1519,8 @@ const drawCanvas = async () => {
   }
 
   // autoDownloadCanvas()
+  document.location.reload()
+  return
   setTimeout(() => {
     // makeFeatures()
     drawCanvas()
