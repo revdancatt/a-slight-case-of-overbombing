@@ -1,38 +1,70 @@
-/* global fxrand fxhash cloud1 water1 Image fetch */
-const ratio = 1.41
-const features = {}
-let lastTick = new Date().getTime()
-const startTime = new Date().getTime()
-let timePassed = 0
-let speedMod = 1
-let paused = false
-let highRes = false
-let showNoise = false
-let goingDown = false
-let sunMoonPhase = 'sun'
-let lastSunPosition = null
-let currentPalette = 1
-const altPalette = 2
-const vaporPalette = 3
-let cloudLoaded = false
-let waterLoaded = false
-let noiseLoaded = false
+/* global fxrand fxhash preloadImagesTmr */
+
+//
+//  A SLIGHT CASE OF OVERBOMBING - an fxhash project - revdancatt 27/01/2022
+//
+//
+//  HELLO!! Code is copyright revdancatt (that's me), so no sneaky using it for your
+//  NFT projects.
+//  But please feel free to unpick it, and ask me questions. A quick note, this is written
+//  as an artist, which is a slightly different (and more storytelling way) of writing
+//  code, than if this was an engineering project. I've tried to keep it somewhat readable
+//  rather than doing clever shortcuts, that are cool, but harder for people to understand.
+//
+//  You can find me at...
+//  https://twitter.com/revdancatt
+//  https://instagram.com/revdancatt
+//  https://youtube.com/revdancatt
+//
+//  What do wee need to make our world come alive?
+//  What does it take to make us sing?
+//  While we're waiting for the next one to arrive?
+//  One million points of light
+//  One billion dollar Vision Thing
+
+// Global values, because today I'm being an artist not an engineer!
+const ratio = 1.41 // canvas ratio
+const features = {} //  so we can keep track of what we're doing
+let lastTick = new Date().getTime() // keeping the animations the same rate no matter the fps
+const startTime = new Date().getTime() // so we can figure out how long since the scene started
+let timePassed = 0 // keeping track of the ms since our last frame
+let speedMod = 1 // multiplier for the animation speed
+let paused = false // are we paused
+let highRes = false // display high or low res
+let showNoise = false // BRING THE NOISE
+let goingDown = false // is the sun or moon going up or down?
+let sunMoonPhase = 'sun' // Or we mooning or sunning
+let lastSunPosition = null // where was the sun when we last saw it?
+let currentPalette = 1 // which palette should we use
+let cloudLoaded = false // A terrible...
+let waterLoaded = false // ...terrible
+let noiseLoaded = false // hack to make sure canvas has access to the images
+
+//  We need this to display features
 window.$fxhashFeatures = {}
 
+// This is where we decide what everything is going to look like and where it's all going
+// to go. We run this once at the start and then never again, all the random number generation
+// happens in here, after this we don't touch random numbers again.
 const makeFeatures = () => {
   //  These are the combinations of the land we can get, along with the % chance of getting it picked
+  //  S = SKY, L = LAND, C = SEA. There were more options than this before, but in the end I decided
+  //  I didn't like them
+  //  30%, 50% and 20% chance of each
   const lands = {
-    SLLC: 25,
+    SLLC: 30,
     SSLC: 50,
-    SLCC: 25
+    SLCC: 20
   }
 
+  //  For the humans
   const landscape = {
     SLLC: 'Sky, Land, Land, Sea',
     SSLC: 'Sky, Sky, Land, Sea',
     SLCC: 'Sky, Land, Sea, Sea'
   }
 
+  //  Also for the humans
   const paletteName = {
     1: 'Monochromatic',
     2: 'Landscape',
@@ -42,19 +74,14 @@ const makeFeatures = () => {
     6: 'Ice'
   }
 
-  /*
-  const lands = {
-    'SSCC': 100
-  }
-  */
-
+  //  Our scene is generally monochromatic, we are working with shades, in this case to hold
+  //  the whole thing together we are basing things around three shades, dark, medium and light
+  //  after this we paste white or black over the top with various alpha to darken or lighted
+  //  the base colours
   const palette = ['dark', 'medium', 'light']
-  features.speed = {
-    fast: 300,
-    medium: 700,
-    slow: 1500
-  }
 
+  //  These are the four main palettes used.
+  //  Red for England, Yellow for Wales, Blue for Scotland and Green for Ireland
   const palettes = {
     England: {
       shade: '#65041E',
@@ -82,6 +109,7 @@ const makeFeatures = () => {
     }
   }
 
+  //  Now we have a bunch of alt palettes.
   //  Landscape
   const altPalette1 = {
     S: {
@@ -217,6 +245,16 @@ const makeFeatures = () => {
     }
   }
 
+  //  The three layers of clouds go at different speeds, near, middle and far. These
+  //  are the speeds
+  features.speed = {
+    fast: 300,
+    medium: 700,
+    slow: 1500
+  }
+
+  //  This is old code left over from running a simulation to check distribution from the
+  //  random number generator
   const runSimulation = false
   let dropSize = 1
   let simTimes = 1
@@ -225,6 +263,7 @@ const makeFeatures = () => {
   for (const land in lands) {
     tally[land] = 0
   }
+  //  We are going to select a land now
   let thisLand = null
 
   //  For fun we are going to simulate running the drop a few times to we can see how the actual
@@ -272,16 +311,18 @@ C = Sea`)
   //  Work out if we should pick a different palette
   if (fxrand() < 0.15) {
     const palChoice = fxrand()
-    currentPalette = 2
-    if (palChoice < 0.6) currentPalette = 3
-    if (palChoice < 0.3) currentPalette = 4
-    if (palChoice < 0.1) currentPalette = 6
+    currentPalette = 2 // Landscape
+    if (palChoice < 0.6) currentPalette = 3 // Waporwave
+    if (palChoice < 0.3) currentPalette = 4 // Desolate
+    if (palChoice < 0.1) currentPalette = 6 // Ice
   }
-  //  If we have the vaporwave or ice pallet then turn noise on my default
+
+  //  If we have the vaporwave or ice pallet then turn noise on by default
   if (currentPalette === 3 || currentPalette === 6) showNoise = true
   //  Have a chance to toggle the noise
   if (fxrand() < 0.18) showNoise = !showNoise
 
+  //  Stuff everything into the global features, so we can access it at all times
   features.land = thisLand
   features.country = country
   features.palette = palette
@@ -292,7 +333,7 @@ C = Sea`)
   features.altPalette4 = altPalette4
   features.altPalette5 = altPalette5
 
-  //  Set the limited 
+  //  Set the limited initial features for the puny humans!
   window.$fxhashFeatures = {
     country: features.country,
     landscape: landscape[features.land],
@@ -300,6 +341,7 @@ C = Sea`)
     noisy: showNoise
   }
 
+  //  Four strips of the world, will be filled with clouds, land and sea
   features.strips = [
     [],
     [],
@@ -312,15 +354,17 @@ C = Sea`)
    * SKY
    *
    * ###################################################################### */
+  //  Start with a dark colour
   let thisColour = 'dark'
   let oldColour1 = 'dark'
   let oldColour2 = null
+  //  Loop through all the lands we have
   for (const i in features.land) {
     //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'S') {
       //  Sometimes we will have 1 curve, other times 3, but most of the time we'll have 2
       let target = 2
-      if (fxrand() < 0.5) {
+      if (fxrand() < 0.55) {
         target = 3
         if (fxrand() < 0.1) target = 1
       }
@@ -380,7 +424,6 @@ C = Sea`)
 
   //  If we have two skys, then the first one needs to be marked as not flipped,
   //  and we need to check to see if they have matching middle colours
-  // let middleHappened = false
   if (features.land[0] === 'S' && features.land[1] === 'S') {
     for (const cloud of features.strips[0]) {
       cloud.flipped = false
@@ -395,6 +438,7 @@ C = Sea`)
     }
   }
 
+  //  Now we are going to maybe texure the clouds
   for (const strip in features.land) {
     if (features.land[strip] === 'S') {
       let first = null
@@ -404,19 +448,19 @@ C = Sea`)
       if (features.strips[strip][1]) second = features.strips[strip][1]
       if (features.strips[strip][2]) third = features.strips[strip][2]
 
-      //  If there are three skies and NONE of them are textured, then we may texture some of them
+      //  If there are three clouds and NONE of them are textured, then we may texture some of them
       if (third !== null && second !== null && !first.textured && !second.textured && !third.textured) {
         const textureChance = fxrand()
         if (textureChance < 0.5) second.textured = true
         if (textureChance > 0.75) first.textured = true
       }
 
-      //  If there are two skies, we _may_ shade the outer one
+      //  If there are two clouds, we _may_ shade the outer one
       if (third === null && second !== null && !first.textured && !second.textured) {
         if (fxrand() < 0.6) first.textured = true
       }
 
-      //  Set the speeds
+      //  Set the speed of the clouds
       if (!third && !second) first.speed = 'fast'
       if (!third && second && first) {
         first.speed = 'medium'
@@ -435,16 +479,15 @@ C = Sea`)
    * SEA
    *
    * ###################################################################### */
-  // const seaCount = 0
 
   //  Reset the colours, but this time we don't reset between strips
   thisColour = 'dark'
   oldColour1 = 'dark'
   oldColour2 = null
   for (const i in features.land) {
-    //  If this thing is a sky, then we do sky things
+    //  If this thing is the sea, then we do sea things
     if (features.land[i] === 'C') {
-      //  Work out how many cures we are going to have
+      //  Work out how many waves we are going to have
       const target = 4
 
       //  I want to keep track of which starting (middle) and end points have been used
@@ -453,13 +496,11 @@ C = Sea`)
       const started = []
       const ended = []
 
-      //  Now we know how many curves there will be we need to make them
+      //  Now we know how many waves there will be we need to make them
       for (let t = 0; t < target; t++) {
         const curve = {}
         //  Add the default features
-        curve.mode = 'full'
         curve.textured = false
-        curve.texture = 1
 
         //  The starting and ending postion can be in any of five points
         //  Top, Bottom, Middle and the two quarter points
@@ -482,25 +523,17 @@ C = Sea`)
         features.strips[i].push(curve)
       }
       //  Sort them into "largest" to "smallest", so we draw back to front
+      //  We're just going to guess at the largest and smallest by taking the starting and ending
+      //  points and assume if they average to be small, then they are visually small
       features.strips[i] = features.strips[i].sort((a, b) => ((a.start + a.end) < (b.start + b.end)) ? 1 : (((b.start + b.end) < (a.start + a.end)) ? -1 : 0))
-      //  Now go through all of them turning the textured ones back into dark and adding the texture
-      for (const wave of features.strips[i]) {
-        if (wave.colour === 'textured') {
-          wave.colour = 'dark'
-          // wave.textured = true
-        }
-      }
     }
   }
 
-  //  Work out where the shoreline is
+  //  Work out where the shoreline is, the dorky way
   features.shore = 4
   if (features.land[0] !== 'C' && features.land[1] === 'C') features.shore = 1
   if (features.land[1] !== 'C' && features.land[2] === 'C') features.shore = 2
   if (features.land[2] !== 'C' && features.land[3] === 'C') features.shore = 3
-
-  //  Now we do the land
-  //  We are starting the colours *OUTSIDE* of the loop, so we can move from one to the next
 
   /* #########################################################################
    *
@@ -508,14 +541,13 @@ C = Sea`)
    *
    * ###################################################################### */
 
-  // TODO: Calculate the top colour from the first strip of sea we have
   //  Reset the colours, but again don't reset between strips
   thisColour = 'dark'
   oldColour1 = 'dark'
   oldColour2 = null
   let landCount = 0
   for (const i in features.land) {
-    //  If this thing is a sky, then we do sky things
+    //  If this thing is a sky, then we do land things
     if (features.land[i] === 'L') {
       let target = 2
       if (fxrand() < 0.4) {
@@ -533,7 +565,7 @@ C = Sea`)
       for (let t = 0; t < target; t++) {
         const curve = {}
         //  Add the default features
-        curve.mode = 'full'
+        curve.mode = 'full' // sometimes we make the land only curve on half of it
         curve.flipped = false
         curve.textured = false
         curve.texture = 1
@@ -563,10 +595,11 @@ C = Sea`)
         oldColour1 = thisColour
         curve.colour = thisColour
 
+        //  20% of the time we'll make the land have a flat half, so we can put trees and buildings on them
         if (fxrand() < 0.2) {
           curve.mode = 'half'
-          curve.middle = curve.start
-          if (fxrand() < 0.5) curve.middle = curve.end
+          curve.middle = curve.start // left side flat
+          if (fxrand() < 0.5) curve.middle = curve.end // 50% of the time right side flat
         }
 
         //  Store the curve
@@ -578,9 +611,9 @@ C = Sea`)
     }
   }
 
-  //  Go through the lands now numbering them for darkness
+  //  Go through the lands now numbering them for darkness, the ones at the back will
+  //  have a layer of black put over them, the further back the darker it'll be
   for (const i in features.land) {
-    //  If this thing is a sky, then we do sky things
     if (features.land[i] === 'L') {
       for (const land of features.strips[i]) {
         land.darkness = --landCount
@@ -600,7 +633,8 @@ C = Sea`)
   oldColour1 = 'dark'
   oldColour2 = null
   for (const i in features.land) {
-    //  If this thing is a sky, then we do sky things
+    //  Run through the colour of the land, so the first sea is a different colour than
+    //  the last land (at the shore where the land meets the sea)
     if (features.land[i] === 'L') {
       for (const land of features.strips[i]) {
         thisColour = land.colour
@@ -611,7 +645,8 @@ C = Sea`)
   }
 
   for (const i in features.land) {
-    //  If this thing is a sky, then we do sky things
+    //  Now go through the sea doing the colours, trying to make sure they are as
+    //  unadjacent as possible
     if (features.land[i] === 'C') {
       for (let w = features.strips[i].length - 1; w >= 0; w--) {
         //  Work out the colours
@@ -621,6 +656,7 @@ C = Sea`)
         oldColour2 = oldColour1
         oldColour1 = thisColour
         features.strips[i][w].colour = thisColour
+        //  Most of the time the water will be textured
         if (fxrand() < 0.75) features.strips[i][w].textured = true
       }
     }
@@ -631,57 +667,57 @@ C = Sea`)
    * EXTRAS
    *
    * ###################################################################### */
-  if (features.land !== 'SSCC') {
-    let sunHeight = null
-    if (features.land === 'SLLC') {
-      sunHeight = 1
-    }
-    if (features.land === 'SSLC') {
-      sunHeight = 2
-    }
-    if (features.land === 'SLCC') {
-      sunHeight = 1
-    }
-
-    //  Keep track of the average start and end heights
-    let skyStartHeight = 0
-    let skyEndHeight = 0
-    let landStartHeight = 0
-    let landEndHeight = 0
-
-    //  Go through the lowest sky strip
-    for (const cloud of features.strips[sunHeight - 1]) {
-      skyStartHeight += cloud.start
-      skyEndHeight += cloud.end
-    }
-    skyStartHeight /= features.strips[sunHeight - 1].length
-    skyEndHeight /= features.strips[sunHeight - 1].length
-
-    //  Same again with the land
-    for (const land of features.strips[sunHeight]) {
-      landStartHeight += (1 - land.start)
-      landEndHeight += (1 - land.end)
-    }
-    landStartHeight /= features.strips[sunHeight].length
-    landEndHeight /= features.strips[sunHeight].length
-
-    //  Now score them up to work out how far across to put the sun
-    let skyPosition = 0.5
-    if (skyStartHeight < skyEndHeight) skyPosition = 0.25
-    if (skyStartHeight > skyEndHeight) skyPosition = 0.75
-
-    let landPosition = 0.5
-    if (landStartHeight < landEndHeight) landPosition = 0.25
-    if (landStartHeight > landEndHeight) landPosition = 0.75
-
-    //  Turn this into the Sun X Position
-    const sunPosition = {
-      x: (skyPosition + landPosition) / 2,
-      strip: sunHeight,
-      size: ((1 - skyStartHeight) + (1 - skyEndHeight) + (1 - landStartHeight) + (1 - landEndHeight)) / 4
-    }
-    features.sunPosition = sunPosition
+  let sunHeight = null
+  //  Figure out the starting height of the sun, i.e. which strip it should appear in
+  if (features.land === 'SLLC') {
+    sunHeight = 1
   }
+  if (features.land === 'SSLC') {
+    sunHeight = 2
+  }
+  if (features.land === 'SLCC') {
+    sunHeight = 1
+  }
+
+  //  Keep track of the average start and end heights
+  let skyStartHeight = 0
+  let skyEndHeight = 0
+  let landStartHeight = 0
+  let landEndHeight = 0
+
+  //  Track the starting and ending points of the clouds
+  for (const cloud of features.strips[sunHeight - 1]) {
+    skyStartHeight += cloud.start
+    skyEndHeight += cloud.end
+  }
+  skyStartHeight /= features.strips[sunHeight - 1].length
+  skyEndHeight /= features.strips[sunHeight - 1].length
+
+  //  Same again with the land
+  for (const land of features.strips[sunHeight]) {
+    landStartHeight += (1 - land.start)
+    landEndHeight += (1 - land.end)
+  }
+  landStartHeight /= features.strips[sunHeight].length
+  landEndHeight /= features.strips[sunHeight].length
+
+  //   Work out (roughly) where the highest cloud and lowest landscape is
+  //  so we know where to place the sun to give it the most room
+  let skyPosition = 0.5
+  if (skyStartHeight < skyEndHeight) skyPosition = 0.25
+  if (skyStartHeight > skyEndHeight) skyPosition = 0.75
+
+  let landPosition = 0.5
+  if (landStartHeight < landEndHeight) landPosition = 0.25
+  if (landStartHeight > landEndHeight) landPosition = 0.75
+
+  //  Turn this into the Sun X Position
+  const sunPosition = {
+    x: (skyPosition + landPosition) / 2,
+    strip: sunHeight,
+    size: ((1 - skyStartHeight) + (1 - skyEndHeight) + (1 - landStartHeight) + (1 - landEndHeight)) / 4
+  }
+  features.sunPosition = sunPosition
 
   /* #########################################################################
    *
@@ -689,6 +725,13 @@ C = Sea`)
    *
    * ###################################################################### */
   features.scenery = []
+  //  Scenery can be put across the landscape in 6 positions
+  //  1, 2 and 3 on the left.
+  //  4 is in the middle (we don't place things there!)
+  //  5, 6, 7 on the right.
+  //  As we don't want things direct above or below each other
+  //  each postion can only have one thing, this keeps track of
+  //  where stuff is/
   const usedPositions = [4]
   //  Decide if we are going to put something onto the shoreline
   let hasShorelineScenery = false
@@ -707,9 +750,9 @@ C = Sea`)
     if (treeChance < 0.5) newScenery.type = 'tree1'
     if (treeChance < 0.25) newScenery.type = 'tree2'
     newScenery.count = Math.floor(fxrand() * 3 + 1) + Math.floor(fxrand() * 3 + 1)
-
+    //  Does it have a door, if so where is it?
     if (newScenery.type === 'house') {
-      if (fxrand() < 0.5) {
+      if (fxrand() < 0.8) {
         newScenery.door = 'left'
         if (fxrand() < 0.5) newScenery.door = 'right'
       }
@@ -769,6 +812,7 @@ C = Sea`)
     }
   }
 
+  //  For the humans, how many houses and groups of trees do we have
   window.$fxhashFeatures.houses = 0
   window.$fxhashFeatures.copse = 0
   features.scenery.forEach((thing) => {
@@ -776,22 +820,32 @@ C = Sea`)
     if (thing.type === 'tree1') window.$fxhashFeatures.copse++
     if (thing.type === 'tree2') window.$fxhashFeatures.copse++
   })
-
 }
-
+//  Call the above make features, so we'll have the window.$fxhashFeatures available
+//  for fxhash
 makeFeatures()
 
+//  Call this at the start
 const init = async () => {
-  // autoDownloadCanvas()
+  //  I should add a timer to this, but really how often to people who aren't
+  //  the developer resize stuff all the time. Stick it in a digital frame and
+  //  have done with it!
   window.addEventListener('resize', async () => {
+    //  If we do resize though, work out the new size...
     await layoutCanvas()
+    //  And redraw it
     drawCanvas()
   })
+
+  //  Now layout the canvas
   await layoutCanvas()
+  //  And draw it!!
   drawCanvas()
 }
 
+//  This is where we layout the canvas, and redraw the textures
 const layoutCanvas = async () => {
+  //  MATH!!!
   const wWidth = window.innerWidth
   const wHeight = window.innerHeight
   let cWidth = wWidth
@@ -801,7 +855,7 @@ const layoutCanvas = async () => {
     cWidth = wHeight / ratio
   }
   cHeight = Math.floor(cHeight / 8) * 8
-  let bmWidth = cWidth
+  let bmWidth = cWidth // Cheesy undeed hack!
 
   const canvas = document.getElementById('target')
   if (highRes) {
@@ -812,13 +866,14 @@ const layoutCanvas = async () => {
     canvas.width = cWidth
     canvas.height = cHeight
   }
+  //  Put it into position
   canvas.style.position = 'absolute'
   canvas.style.width = `${cWidth}px`
   canvas.style.height = `${cHeight}px`
   canvas.style.left = `${(wWidth - cWidth) / 2}px`
   canvas.style.top = `${(wHeight - cHeight) / 2}px`
 
-  //  Create the cloud canvas
+  //  Create the cloud pattern
   features.cloud1 = document.createElement('canvas')
   features.cloud1.id = 'cloud1src'
   features.cloud1.width = bmWidth / 6
@@ -827,7 +882,7 @@ const layoutCanvas = async () => {
   cloud1Ctx.drawImage(features.cloud1img, 0, 0, 512, 512, 0, 0, features.cloud1.width, features.cloud1.height)
   features.cloud1pattern = cloud1Ctx.createPattern(features.cloud1, 'repeat')
 
-  //  Create the water canvas
+  //  Create the water pattern
   features.water1 = document.createElement('canvas')
   features.water1.id = 'water1src'
   features.water1.width = bmWidth / 1
@@ -836,7 +891,7 @@ const layoutCanvas = async () => {
   water1Ctx.drawImage(features.water1img, 0, 0, 512, 512, 0, 0, features.water1.width, features.water1.height)
   features.water1pattern = water1Ctx.createPattern(features.water1, 'repeat')
 
-  //  Create the water canvas
+  //  Create the noise pattern
   features.noise1 = document.createElement('canvas')
   features.noise1.id = 'noise1src'
   features.noise1.width = canvas.height / 8
@@ -844,17 +899,17 @@ const layoutCanvas = async () => {
   const noise1Ctx = features.noise1.getContext('2d')
   noise1Ctx.drawImage(features.noise1img, 0, 0, 256, 1024, 0, 0, features.noise1.width, features.noise1.height)
   features.noise1pattern = noise1Ctx.createPattern(features.noise1, 'repeat-x')
-
 }
 
 //  Draw the cloud for a strip
 const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
+  //  How much time has passed since last time?
   const diff = timePassed
 
   let start = null
   let end = null
-  let cmodmod = 1
-  if (cloud.mode === 'half') cmodmod = 2
+  let cmodmod = 1 // How much we shorten the sin wave by
+  if (cloud.mode === 'half') cmodmod = 2 // (we don't have half clouds!)
 
   if (!cloud.flipped) {
     edge += stripSize
@@ -862,6 +917,7 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
     end = edge + (stripSize * -1) * cloud.end
   }
 
+  //  If we are flipping the cloud (to the underside) then reverse everything
   if (cloud.flipped) {
     start = edge + (stripSize * 1) * cloud.start * 0.8
     end = edge + (stripSize * 1) * cloud.end * 0.8
@@ -871,6 +927,10 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
   let y = null
   for (let l = 0; l <= 1; l++) {
     if (l === 0 || (l === 1 && cloud.textured)) {
+      //  Long arsed way of deciding which palette to use, can you dear reader spot
+      //  the way we can simplify this?
+      //  But sometimes it turns out copy & paste is quicker, and we may want to
+      //  fudge things sometimes (but in this case we don't)
       ctx.fillStyle = features.palettes[features.country][cloud.colour]
       if (currentPalette === 2) ctx.fillStyle = features.altPalette1.S[cloud.colour]
       if (currentPalette === 3) ctx.fillStyle = features.altPalette2.S[cloud.colour]
@@ -894,13 +954,11 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
       ctx.beginPath()
       ctx.moveTo(left, edge)
       //  Now we need to step through the points from the start to the end
-      for (let i = 0; i <= 1.01; i += 0.01) {
+      for (let i = 0; i <= 1.01; i += 0.01) { // <= 1.01 because of rounding and a clean right side
         const cmod = (Math.sin(((180 * i * cmodmod) + (90 + diff / features.speed[cloud.speed])) * (Math.PI / 180)) + 1) / 2
-        //  If we are drawing a full cloud then we have to do this
-        y = end - ((end - start) * cmod)
+        y = end - ((end - start) * cmod) // cause I needed to console.log(y) for debugging
         ctx.lineTo(left + ((right - left) * i), y)
       }
-      // ctx.lineTo(right, y)
 
       ctx.lineTo(right, edge)
       ctx.closePath()
@@ -910,17 +968,16 @@ const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
       ctx.globalAlpha = 1.0
     }
   }
-  // ctx.stroke()
 }
 
 //  Draw a wave for a strip
 const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
-
   let start = null
   let end = null
   let cmodmod = 1
-  if (wave.mode === 'half') cmodmod = 2
+  if (wave.mode === 'half') cmodmod = 2 // (We also don't have half waves!!)
 
+  //  Same as all the cloud stuff, but wetter!
   start = top + (wave.start * stripSize)
   end = top + (wave.end * stripSize)
   if (wave.shrink) {
@@ -971,15 +1028,18 @@ const drawWave = (ctx, wave, stripSize, shore, top, left, right, middle) => {
 
 //  Draw the land for a strip
 const drawLand = (ctx, canvas, land, stripSize, shore, bottom, left, right, middle) => {
+  //  Start, midd and end points for easy reference
   const start = bottom + (stripSize * land.start)
   const midd = bottom + (stripSize * land.middle)
   const end = bottom + (stripSize * land.end)
   let cmodmod = 1
-  if (land.mode === 'half') cmodmod = 2
+  if (land.mode === 'half') cmodmod = 2 // (We do have half lands!!)
 
   let y = null
+  //  Going to do three passes for land
   for (let l = 0; l <= 3; l++) {
     if (l === 0 || (l === 1 && land.textured) || l === 2 || (l === 3 && showNoise)) {
+      //  See above!
       ctx.fillStyle = features.palettes[features.country][land.colour]
       if (currentPalette === 2) ctx.fillStyle = features.altPalette1.L[land.colour]
       if (currentPalette === 3) ctx.fillStyle = features.altPalette2.L[land.colour]
@@ -991,13 +1051,14 @@ const drawLand = (ctx, canvas, land, stripSize, shore, bottom, left, right, midd
       ctx.globalCompositeOperation = 'source-over'
       ctx.globalAlpha = 1.0
 
-      //  If we are on the third pass then add the darkness in
+      //  If we are on the second pass then add the darkness in
       if (l === 2) {
         ctx.fillStyle = 'black'
         ctx.fillStyle = features.palettes[features.country].shade
         ctx.globalAlpha = 0.08 * land.darkness
       }
 
+      //  Do noise this time around if we have it
       if (l === 3 && showNoise) {
         ctx.fillStyle = features.noise1pattern
         ctx.globalAlpha = 1
@@ -1046,11 +1107,14 @@ const drawLand = (ctx, canvas, land, stripSize, shore, bottom, left, right, midd
         }
         if (y > offsetY) offsetY = y
       }
+      //  A different way to make sure we finish the wave on the right hand side
+      //  Not as good as the clouds way, but variety is the spice of life and all that
       ctx.lineTo(right, y)
 
       ctx.lineTo(right, shore)
       ctx.closePath()
 
+      //  Move the whole thing so the noise texture starts at the top of each hill
       if (l === 3 && showNoise) {
         ctx.save()
         if (start < end) {
@@ -1068,6 +1132,7 @@ const drawLand = (ctx, canvas, land, stripSize, shore, bottom, left, right, midd
       ctx.globalAlpha = 1.0
     }
   }
+  //  If this strip of land has some scenery then draw it now.
   if (land.scenery) {
     if (land.scenery.type === 'tree1' || land.scenery.type === 'tree2') {
       drawTree(ctx, canvas.width, canvas.height, land.scenery)
@@ -1078,12 +1143,15 @@ const drawLand = (ctx, canvas, land, stripSize, shore, bottom, left, right, midd
   }
 }
 
+//  THE SUN IS BEST
 const drawSun = (ctx, sun, width, stripSize) => {
   const sunLevel = stripSize * sun.strip + (stripSize * 1.5 * Math.sin(timePassed / 100000))
   let sizeMod = 1
-  if (sunMoonPhase !== 'sun') sizeMod = 0.66
+  if (sunMoonPhase !== 'sun') sizeMod = 0.666 // If it's a moon, make is smaller, wicked night!
 
+  //  Make the sun the dark colours
   ctx.fillStyle = features.palettes[features.country].dark
+  //  Unless all of this
   if (features.country === 'England') ctx.fillStyle = features.palettes[features.country].light
   if (features.country === 'Ireland') ctx.fillStyle = features.palettes[features.country].light
   if (currentPalette === 2) ctx.fillStyle = features.altPalette1.sun.light
@@ -1096,34 +1164,40 @@ const drawSun = (ctx, sun, width, stripSize) => {
   ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * 0.8, 0, 2 * Math.PI)
   ctx.fill()
 
+  //  Now do it again, but lighted it up a bit
   ctx.fillStyle = 'white'
   ctx.globalAlpha = 0.25
-  if (sunMoonPhase !== 'sun') ctx.globalAlpha = 0.75
-  ctx.beginPath()
-  ctx.arc(width * sun.x, sunLevel, stripSize * sun.size * sizeMod * 0.8, 0, 2 * Math.PI)
-  if (currentPalette === 1 || sunMoonPhase !== 'sun') {
-    ctx.fill()
-  }
+  if (sunMoonPhase !== 'sun') ctx.globalAlpha = 0.75 // If it's a moon even lighter
+  if (currentPalette === 1 || sunMoonPhase !== 'sun') ctx.fill() // Only fill if it's a moon
 
+  //  Reset
   ctx.globalAlpha = 1.0
 }
 
+//  Plant trees
 const drawTree = (ctx, width, height, tree) => {
+  //  Size of the tree is a function of the canvas width
   let treeRadius = width / 80
   if (tree.type === 'tree2') treeRadius *= 0.8
+  //  A group of trees are spread out
   const spreadStep = treeRadius * 3
   const spreadStart = (tree.count - 1) * spreadStep / -2
+  //  Work out where the base of the tree is, and the middle of the top bit
   const xPos = width / 8 * tree.position
   let yPos = height / 4 * tree.strip
   let trunkBase = height / 4 * tree.strip
   let yMod = 1
+  //  Make the tree smaller
   if (tree.type === 'tree1') {
     yPos += (treeRadius * 0.25)
   }
+  //  Make these ones taller
   if (tree.type === 'tree2') {
     yPos -= treeRadius
     yMod = 2
   }
+  //  If this is on a flat bit of land, we need to adjust up or down
+  //  by wherever it is
   if (tree.middle) {
     yPos += (height / 4) * tree.middle
     trunkBase += (height / 4) * tree.middle
@@ -1131,7 +1205,6 @@ const drawTree = (ctx, width, height, tree) => {
 
   //  Now loop through the trees
   for (let i = 0; i < tree.count; i++) {
-
     //  Draw the trunk
     ctx.globalAlpha = 0.8
     ctx.strokeStyle = '#000'
@@ -1162,7 +1235,6 @@ const drawTree = (ctx, width, height, tree) => {
     ctx.fillStyle = 'white'
     ctx.fill()
 
-
     //  Now do the dark half
     ctx.globalAlpha = 1.0
     ctx.fillStyle = features.palettes[features.country].dark
@@ -1182,12 +1254,12 @@ const drawTree = (ctx, width, height, tree) => {
     ctx.globalAlpha = 0.2
     ctx.fillStyle = 'black'
     ctx.fill()
-
   }
 }
 
+//  Somewhere for people to live
 const drawHouse = (ctx, width, height, house) => {
-  let houseSize = width / 50
+  const houseSize = width / 50
   const xPos = width / 8 * house.position
   let yPos = height / 4 * house.strip
   if (house.middle) yPos += (height / 4) * house.middle
@@ -1271,9 +1343,9 @@ const drawHouse = (ctx, width, height, house) => {
   ctx.lineTo(xPos + (houseSize * 2), yPos - (houseSize * 0.7))
   ctx.lineTo(xPos + (houseSize * 0.8), yPos - (houseSize * 0.7))
   ctx.fill()
-
 }
 
+//  This is where we bring it all together
 const drawCanvas = async () => {
   const canvas = document.getElementById('target')
   const ctx = canvas.getContext('2d')
@@ -1518,15 +1590,11 @@ const drawCanvas = async () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
 
-  // await autoDownloadCanvas()
-  // document.location.reload()
-  // return
-  setTimeout(() => {
-    // makeFeatures()
-    drawCanvas()
-  }, 66)
+  //  We should wait for the next animation frame here
+  window.requestAnimationFrame(drawCanvas)
 }
 
+//  This downloads the image by using MAGIC!!!
 const autoDownloadCanvas = async (showHash = false) => {
   const element = document.createElement('a')
   element.setAttribute('download', `Landscape_${fxhash}`)
@@ -1541,6 +1609,7 @@ const autoDownloadCanvas = async (showHash = false) => {
   document.body.removeChild(element)
 }
 
+//  KEY PRESSED OF DOOM
 document.addEventListener('keypress', async (e) => {
   e = e || window.event
 
@@ -1577,6 +1646,7 @@ document.addEventListener('keypress', async (e) => {
   }
 })
 
+// Tedious hack to do touches
 let timeout = null
 let lastTap = new Date().getTime()
 document.addEventListener('touchend', (event) => {
@@ -1592,12 +1662,13 @@ document.addEventListener('touchend', (event) => {
       currentPalette++
       if (currentPalette > 6) currentPalette = 1
       clearTimeout(timeout)
-    }, 500);
+    }, 500)
   }
   lastTap = currentTime
 })
 
 //  This preloads the images so we can get access to them
+// eslint-disable-next-line no-unused-vars
 const preloadImages = () => {
   // If the <img> don't exist in the DOM yet, then we add them
   let cloud1img = document.getElementById('cloud1Img')
