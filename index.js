@@ -1518,9 +1518,9 @@ const drawCanvas = async () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
 
-  // autoDownloadCanvas()
-  document.location.reload()
-  return
+  // await autoDownloadCanvas()
+  // document.location.reload()
+  // return
   setTimeout(() => {
     // makeFeatures()
     drawCanvas()
