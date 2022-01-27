@@ -309,7 +309,7 @@ C = Sea`)
   if (countryChance < 0.25) country = 'Ireland'
 
   //  Work out if we should pick a different palette
-  if (fxrand() < 0.15) {
+  if (fxrand() < 0.12) {
     const palChoice = fxrand()
     currentPalette = 2 // Landscape
     if (palChoice < 0.6) currentPalette = 3 // Waporwave
