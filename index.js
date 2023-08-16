@@ -1580,15 +1580,16 @@ const init = async () => {
 }
 
 //  This is where we layout the canvas, and redraw the textures (if any are used)
-const layoutCanvas = async () => {
+const layoutCanvas = async (windowObj = window, urlParamsObj = urlParams) => {
   //  Kill the next animation frame (note, this isn't always used, only if we're animating)
-  window.cancelAnimationFrame(nextFrame)
+  windowObj.cancelAnimationFrame(nextFrame)
 
-  //  Get the window size
-  const wWidth = window.innerWidth
-  const wHeight = window.innerHeight
+  //  Get the window size, and devicePixelRatio
+  const { innerWidth: wWidth, innerHeight: wHeight, devicePixelRatio = 1 } = windowObj
+  let dpr = devicePixelRatio
   let cWidth = wWidth
   let cHeight = cWidth * ratio
+
   if (cHeight > wHeight) {
     cHeight = wHeight
     cWidth = wHeight / ratio
@@ -1596,24 +1597,14 @@ const layoutCanvas = async () => {
 
   // Grab any canvas elements so we can delete them
   const canvases = document.getElementsByTagName('canvas')
-  for (let i = 0; i < canvases.length; i++) {
-    canvases[i].remove()
-  }
-
-  //  Now create a new canvas with the id "target" and attach it to the body
-  const newCanvas = document.createElement('canvas')
-  newCanvas.id = 'target'
-  // Attach it to the body
-  document.body.appendChild(newCanvas)
+  Array.from(canvases).forEach(canvas => canvas.remove())
 
   // Now set the target width and height
-  let targetHeight = cHeight
-  if (highRes) targetHeight = 4096
+  let targetHeight = highRes ? 4096 : cHeight
   let targetWidth = targetHeight / ratio
-  let dpr = window.devicePixelRatio || 1
 
   //  If the alba params are forcing the width, then use that (only relevant for Alba)
-  if (window && window.alba && window.alba.params && window.alba.params.width) {
+  if (windowObj.alba?.params?.width) {
     targetWidth = window.alba.params.width
     targetHeight = Math.floor(targetWidth * ratio)
   }
@@ -1627,14 +1618,16 @@ const layoutCanvas = async () => {
   }
 
   // Update based on the dpr
-  targetWidth = targetWidth * dpr
-  targetHeight = targetHeight * dpr
+  targetWidth *= dpr
+  targetHeight *= dpr
 
   //  Set the canvas width and height
-  const canvas = document.getElementById('target')
-  canvas.height = targetHeight
+  const canvas = document.createElement('canvas')
+  canvas.id = 'target'
   canvas.width = targetWidth
-  // Set the canvas style
+  canvas.height = targetHeight
+  document.body.appendChild(canvas)
+
   canvas.style.position = 'absolute'
   canvas.style.width = `${cWidth}px`
   canvas.style.height = `${cHeight}px`
@@ -1676,21 +1669,30 @@ const layoutCanvas = async () => {
 //  This allows us to download the canvas as a PNG
 // If we are forcing the id then we add that to the filename
 const autoDownloadCanvas = async () => {
+  const canvas = document.getElementById('target')
+
+  // Create a download link
   const element = document.createElement('a')
-  element.setAttribute('download', `${prefix}_${fxhash}`)
-  // If a force Id is in the URL, then add that to the filename
-  if ('forceId' in urlParams) element.setAttribute('download', `${prefix}_${urlParams.forceId.toString().padStart(4, '0')}_${fxhash}`)
+  const filename = 'forceId' in urlParams
+    ? `${prefix}_${urlParams.forceId.toString().padStart(4, '0')}_${fxhash}`
+    : `${prefix}_${fxhash}`
+  element.setAttribute('download', filename)
+
+  // Hide the link element
   element.style.display = 'none'
   document.body.appendChild(element)
-  let imageBlob = null
-  imageBlob = await new Promise(resolve => document.getElementById('target').toBlob(resolve, 'image/png'))
-  element.setAttribute('href', window.URL.createObjectURL(imageBlob, {
-    type: 'image/png'
-  }))
+
+  // Convert canvas to Blob and set it as the link's href
+  const imageBlob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'))
+  element.setAttribute('href', window.URL.createObjectURL(imageBlob))
+
+  // Trigger the download
   element.click()
+
+  // Clean up by removing the link element
   document.body.removeChild(element)
-  // If we are dumping outputs then reload the page
-  // This is if we are dumping a whole bunch of outputs
+
+  // Reload the page if dumpOutputs is true
   if (dumpOutputs) {
     window.location.reload()
   }
@@ -1700,39 +1702,31 @@ const autoDownloadCanvas = async () => {
 document.addEventListener('keypress', async (e) => {
   e = e || window.event
 
-  //  Speed up
-  if (e.key === '.') {
-    speedMod *= 2
-    if (speedMod > 32) speedMod = 32
-  }
-  //  Slow down
-  if (e.key === ',') {
-    speedMod /= 2
-    if (speedMod < 1) speedMod = 1
-  }
-  // Pause
-  if (e.key === ' ') {
-    paused = !paused
-  }
-  // Noise
-  if (e.key === 'n') {
-    showNoise = !showNoise
-  }
-  // cycle palettes
-  if (e.key === 'p') {
-    currentPalette++
-    if (currentPalette > 6) currentPalette = 1
-  }
+  // Common controls
   // Save
   if (e.key === 's') autoDownloadCanvas()
+
   //   Toggle highres mode
   if (e.key === 'h') {
     highRes = !highRes
-    await layoutCanvas()
-    drawCanvas()
+    console.log(`High res mode: ${highRes}`)
+    layoutCanvas().then(drawCanvas)
   }
+
+  // Custom controls
+  if (e.key === '.') speedMod = (speedMod * 2 <= 32) ? speedMod * 2 : 32
+  if (e.key === ',') speedMod = (speedMod / 2 >= 1) ? speedMod / 2 : 1
+
+  // Pause
+  if (e.key === ' ') paused = !paused
+  // Noise
+  if (e.key === 'n') showNoise = !showNoise
+
+  // cycle palettes
+  if (e.key === 'p') currentPalette = (currentPalette % 6) + 1
 })
 
+// This is custom code to handle touch events
 // Tedious hack to do touches
 let timeout = null
 let lastTap = new Date().getTime()
