@@ -1,6 +1,5 @@
-/* global preloadImagesTmr $fx fxhash fxrand */
+/* global preloadImagesTmr fxhash fxrand */
 
-//
 //  A SLIGHT CASE OF OVERBOMBING - an fxhash project - revdancatt 27/01/2022
 //
 //
@@ -23,15 +22,26 @@
 //  One billion dollar Vision Thing
 
 // Global values, because today I'm being an artist not an engineer!
+// These are the generally common values we'll use across our projects
 const ratio = 1.41 // canvas ratio
-const features = {} //  so we can keep track of what we're doing
-const nextFrame = null
+const features = {} // A global object to hold all the features we'll use in the draw stage
+let nextFrame = null // requestAnimationFrame, and the ability to clear it
+let resizeTmr = null // a timer to make sure we don't resize too often
+let highRes = false // display high or low res
+let thumbnailTaken = false // have we taken a thumbnail yet, so we don't take another
+let forceDownloaded = false // are we forcing a download?
+const urlSearchParams = new URLSearchParams(window.location.search)
+const urlParams = Object.fromEntries(urlSearchParams.entries())
+const prefix = 'A_Slight_Case_Of_Overbombing'
+// dumpOutputs will be set to false unless we have ?dumpOutputs=true in the URL
+const dumpOutputs = urlParams.dumpOutputs === 'true'
+
+// These are custom values for this project
 let lastTick = new Date().getTime() // keeping the animations the same rate no matter the fps
 const startTime = new Date().getTime() // so we can figure out how long since the scene started
 let timePassed = 0 // keeping track of the ms since our last frame
 let speedMod = 1 // multiplier for the animation speed
 let paused = false // are we paused
-let highRes = false // display high or low res
 let showNoise = false // BRING THE NOISE
 let goingDown = false // is the sun or moon going up or down?
 let sunMoonPhase = 'sun' // Or we mooning or sunning
@@ -40,13 +50,8 @@ let currentPalette = 1 // which palette should we use
 let cloudLoaded = false // A terrible...
 let waterLoaded = false // ...terrible
 let noiseLoaded = false // hack to make sure canvas has access to the images
-let thumbnailTaken = false
-let forceDownloaded = false
-const dumpOutputs = false
-const urlSearchParams = new URLSearchParams(window.location.search)
-const urlParams = Object.fromEntries(urlSearchParams.entries())
 
-//  We need this to display features
+//  We need this to display features in fxhash
 window.$fxhashFeatures = {}
 
 // This is where we decide what everything is going to look like and where it's all going
@@ -827,113 +832,20 @@ C = Sea`)
     if (thing.type === 'tree2') window.$fxhashFeatures.copse++
   })
 }
-//  Call the above make features, so we'll have the window.$fxhashFeatures available
-//  for fxhash
+// Call makeFeatures() right away, because we want to do this as soon as possible
 makeFeatures()
+console.table(window.$fxhashFeatures)
 
-//  Call this at the start
-const init = async () => {
-  //  I should add a timer to this, but really how often to people who aren't
-  //  the developer resize stuff all the time. Stick it in a digital frame and
-  //  have done with it!
-  window.addEventListener('resize', async () => {
-    //  If we do resize though, work out the new size...
-    await layoutCanvas()
-    //  And redraw it
-    drawCanvas()
-  })
-
-  //  Now layout the canvas
-  await layoutCanvas()
-  //  And draw it!!
-  drawCanvas()
-}
-
-//  This is where we layout the canvas, and redraw the textures
-const layoutCanvas = async () => {
-  //  Kill the next animation frame
-  window.cancelAnimationFrame(nextFrame)
-
-  const wWidth = window.innerWidth
-  const wHeight = window.innerHeight
-  let cWidth = wWidth
-  let cHeight = cWidth * ratio
-  if (cHeight > wHeight) {
-    cHeight = wHeight
-    cWidth = wHeight / ratio
-  }
-  // Grab any canvas elements so we can delete them
-  const canvases = document.getElementsByTagName('canvas')
-  for (let i = 0; i < canvases.length; i++) {
-    canvases[i].remove()
-  }
-  //  Now create a new canvas with the id "target" and attach it to the body
-  const newCanvas = document.createElement('canvas')
-  newCanvas.id = 'target'
-  // Attach it to the body
-  document.body.appendChild(newCanvas)
-
-  let targetHeight = 4096
-  let targetWidth = targetHeight / ratio
-  let dpr = window.devicePixelRatio || 1
-
-  //  If the alba params are forcing the width, then use that
-  if (window && window.alba && window.alba.params && window.alba.params.width) {
-    targetWidth = window.alba.params.width
-    targetHeight = Math.floor(targetWidth * ratio)
-  }
-
-  // If *I* am forcing the width, then use that
-  if ('forceWidth' in urlParams) {
-    targetWidth = parseInt(urlParams.forceWidth)
-    targetHeight = Math.floor(targetWidth * ratio)
-    dpr = 1
-  }
-
-  // Log the width and height
-  targetWidth = targetWidth * dpr
-  targetHeight = targetHeight * dpr
-
-  const canvas = document.getElementById('target')
-  canvas.height = targetHeight
-  canvas.width = targetWidth
-
-  // Set the width onto the alba params
-  // window.alba.params.width = canvas.width
-
-  canvas.style.position = 'absolute'
-  canvas.style.width = `${cWidth}px`
-  canvas.style.height = `${cHeight}px`
-  canvas.style.left = `${(wWidth - cWidth) / 2}px`
-  canvas.style.top = `${(wHeight - cHeight) / 2}px`
-
-  //  Create the cloud pattern
-  features.cloud1 = document.createElement('canvas')
-  features.cloud1.id = 'cloud1src'
-  features.cloud1.width = targetWidth / 6
-  features.cloud1.height = targetWidth / 6
-  const cloud1Ctx = features.cloud1.getContext('2d')
-  cloud1Ctx.drawImage(features.cloud1img, 0, 0, 512, 512, 0, 0, features.cloud1.width, features.cloud1.height)
-  features.cloud1pattern = cloud1Ctx.createPattern(features.cloud1, 'repeat')
-
-  //  Create the water pattern
-  features.water1 = document.createElement('canvas')
-  features.water1.id = 'water1src'
-  features.water1.width = targetWidth / 1
-  features.water1.height = targetWidth / 2
-  const water1Ctx = features.water1.getContext('2d')
-  water1Ctx.drawImage(features.water1img, 0, 0, 512, 512, 0, 0, features.water1.width, features.water1.height)
-  features.water1pattern = water1Ctx.createPattern(features.water1, 'repeat')
-
-  //  Create the noise pattern
-  features.noise1 = document.createElement('canvas')
-  features.noise1.id = 'noise1src'
-  features.noise1.width = canvas.height / 8
-  features.noise1.height = canvas.height / 2
-  const noise1Ctx = features.noise1.getContext('2d')
-  noise1Ctx.drawImage(features.noise1img, 0, 0, 256, 1024, 0, 0, features.noise1.width, features.noise1.height)
-  features.noise1pattern = noise1Ctx.createPattern(features.noise1, 'repeat-x')
-}
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//
+// Custom drawing code goes here. By this point everything that will be drawn
+// has been decided, so we just need to draw it.
+//
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
 
 //  Draw the cloud for a strip
 const drawCloud = (ctx, cloud, stripSize, edge, left, right, middle) => {
@@ -1630,22 +1542,144 @@ const drawCanvas = async () => {
   }
 
   // If we are forcing download, then do that now
-  if ('forceDownload' in urlParams && forceDownloaded === false) {
-    forceDownloaded = true
+  if (dumpOutputs || ('forceDownload' in urlParams && forceDownloaded === false)) {
+    forceDownloaded = 'forceDownload' in urlParams
     await autoDownloadCanvas()
+    // Tell the parent window that we have downloaded
     window.parent.postMessage('forceDownloaded', '*')
   } else {
     //  We should wait for the next animation frame here
-    window.requestAnimationFrame(drawCanvas)
+    nextFrame = window.requestAnimationFrame(drawCanvas)
   }
 }
 
-//  This downloads the image by using MAGIC!!!
-const autoDownloadCanvas = async (showHash = false) => {
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+//
+// These are the common functions that are used by the canvas that we use
+// across all the projects, init sets up the resize event and kicks off the
+// layoutCanvas function.
+//
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+// -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+
+//  Call this to start everything off
+const init = async () => {
+  // Resize the canvas when the window resizes, but only after 100ms of no resizing
+  window.addEventListener('resize', async () => {
+    clearTimeout(resizeTmr)
+    resizeTmr = setTimeout(async () => {
+      await layoutCanvas()
+    }, 100)
+  })
+
+  //  Now layout the canvas
+  await layoutCanvas()
+}
+
+//  This is where we layout the canvas, and redraw the textures (if any are used)
+const layoutCanvas = async () => {
+  //  Kill the next animation frame (note, this isn't always used, only if we're animating)
+  window.cancelAnimationFrame(nextFrame)
+
+  //  Get the window size
+  const wWidth = window.innerWidth
+  const wHeight = window.innerHeight
+  let cWidth = wWidth
+  let cHeight = cWidth * ratio
+  if (cHeight > wHeight) {
+    cHeight = wHeight
+    cWidth = wHeight / ratio
+  }
+
+  // Grab any canvas elements so we can delete them
+  const canvases = document.getElementsByTagName('canvas')
+  for (let i = 0; i < canvases.length; i++) {
+    canvases[i].remove()
+  }
+
+  //  Now create a new canvas with the id "target" and attach it to the body
+  const newCanvas = document.createElement('canvas')
+  newCanvas.id = 'target'
+  // Attach it to the body
+  document.body.appendChild(newCanvas)
+
+  // Now set the target width and height
+  let targetHeight = cHeight
+  if (highRes) targetHeight = 4096
+  let targetWidth = targetHeight / ratio
+  let dpr = window.devicePixelRatio || 1
+
+  //  If the alba params are forcing the width, then use that (only relevant for Alba)
+  if (window && window.alba && window.alba.params && window.alba.params.width) {
+    targetWidth = window.alba.params.width
+    targetHeight = Math.floor(targetWidth * ratio)
+  }
+
+  // If *I* am forcing the width, then use that, and set the dpr to 1
+  // (as we want to render at the exact size)
+  if ('forceWidth' in urlParams) {
+    targetWidth = parseInt(urlParams.forceWidth)
+    targetHeight = Math.floor(targetWidth * ratio)
+    dpr = 1
+  }
+
+  // Update based on the dpr
+  targetWidth = targetWidth * dpr
+  targetHeight = targetHeight * dpr
+
+  //  Set the canvas width and height
+  const canvas = document.getElementById('target')
+  canvas.height = targetHeight
+  canvas.width = targetWidth
+  // Set the canvas style
+  canvas.style.position = 'absolute'
+  canvas.style.width = `${cWidth}px`
+  canvas.style.height = `${cHeight}px`
+  canvas.style.left = `${(wWidth - cWidth) / 2}px`
+  canvas.style.top = `${(wHeight - cHeight) / 2}px`
+
+  // CUSTOM TEXTURE CODE GOES HERE
+  //  Create the cloud pattern
+  features.cloud1 = document.createElement('canvas')
+  features.cloud1.id = 'cloud1src'
+  features.cloud1.width = targetWidth / 6
+  features.cloud1.height = targetWidth / 6
+  const cloud1Ctx = features.cloud1.getContext('2d')
+  cloud1Ctx.drawImage(features.cloud1img, 0, 0, 512, 512, 0, 0, features.cloud1.width, features.cloud1.height)
+  features.cloud1pattern = cloud1Ctx.createPattern(features.cloud1, 'repeat')
+
+  //  Create the water pattern
+  features.water1 = document.createElement('canvas')
+  features.water1.id = 'water1src'
+  features.water1.width = targetWidth / 1
+  features.water1.height = targetWidth / 2
+  const water1Ctx = features.water1.getContext('2d')
+  water1Ctx.drawImage(features.water1img, 0, 0, 512, 512, 0, 0, features.water1.width, features.water1.height)
+  features.water1pattern = water1Ctx.createPattern(features.water1, 'repeat')
+
+  //  Create the noise pattern
+  features.noise1 = document.createElement('canvas')
+  features.noise1.id = 'noise1src'
+  features.noise1.width = canvas.height / 8
+  features.noise1.height = canvas.height / 2
+  const noise1Ctx = features.noise1.getContext('2d')
+  noise1Ctx.drawImage(features.noise1img, 0, 0, 256, 1024, 0, 0, features.noise1.width, features.noise1.height)
+  features.noise1pattern = noise1Ctx.createPattern(features.noise1, 'repeat-x')
+
+  // Kick off the draw canvas function
+  drawCanvas()
+}
+
+//  This allows us to download the canvas as a PNG
+// If we are forcing the id then we add that to the filename
+const autoDownloadCanvas = async () => {
   const element = document.createElement('a')
-  element.setAttribute('download', `A_Slight_Case_Of_Overbombing_${fxhash}`)
+  element.setAttribute('download', `${prefix}_${fxhash}`)
   // If a force Id is in the URL, then add that to the filename
-  if ('forceId' in urlParams) element.setAttribute('download', `A_Slight_Case_Of_Overbombing_${urlParams.forceId.toString().padStart(4, '0')}_${fxhash}`)
+  if ('forceId' in urlParams) element.setAttribute('download', `${prefix}_${urlParams.forceId.toString().padStart(4, '0')}_${fxhash}`)
   element.style.display = 'none'
   document.body.appendChild(element)
   let imageBlob = null
@@ -1656,6 +1690,7 @@ const autoDownloadCanvas = async (showHash = false) => {
   element.click()
   document.body.removeChild(element)
   // If we are dumping outputs then reload the page
+  // This is if we are dumping a whole bunch of outputs
   if (dumpOutputs) {
     window.location.reload()
   }
@@ -1719,7 +1754,9 @@ document.addEventListener('touchend', (event) => {
   lastTap = currentTime
 })
 
-//  This preloads the images so we can get access to them
+// This function makes sure that everything is loaded and ready before we start.
+// The main index.html page calls this function. This keeps checking everything and
+// once everything is loaded, it calls the init() function.
 // eslint-disable-next-line no-unused-vars
 const preloadImages = () => {
   // If the <img> don't exist in the DOM yet, then we add them
@@ -1774,5 +1811,3 @@ const preloadImages = () => {
     init()
   }
 }
-
-console.table(window.$fxhashFeatures)
