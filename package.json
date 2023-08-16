@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://revdancatt@github.com/revdancatt/fxhash-landscape.git"
+    "url": "git+https://revdancatt@github.com/revdancatt/a-slight-case-of-overbombing.git"
   },
   "keywords": [
     "fxhash",
@@ -17,9 +17,9 @@
   "author": "revdancatt",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/revdancatt/fxhash-landscape/issues"
+    "url": "https://github.com/revdancatt/a-slight-case-of-overbombing/issues"
   },
-  "homepage": "https://github.com/revdancatt/fxhash-landscape#readme",
+  "homepage": "https://github.com/revdancatt/a-slight-case-of-overbombing#readme",
   "devDependencies": {
     "standard": "^16.0.4"
   }
