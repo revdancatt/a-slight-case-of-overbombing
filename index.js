@@ -1,4 +1,4 @@
-/* global preloadImagesTmr fxhash fxrand */
+/* global preloadImagesTmr $fx fxpreview fxhash fxrand */
 
 //  A SLIGHT CASE OF OVERBOMBING - an fxhash project - revdancatt 27/01/2022
 //
@@ -1536,8 +1536,16 @@ const drawCanvas = async () => {
     ctx.fillRect(0, 0, canvas.width, canvas.height)
   }
 
+  // Try various methods to tell the parent window that we've drawn something
   if (!thumbnailTaken) {
-    // $fx.preview()
+    try {
+      $fx.preview()
+    } catch (e) {
+      try {
+        fxpreview()
+      } catch (e) {
+      }
+    }
     thumbnailTaken = true
   }
 
@@ -1579,7 +1587,11 @@ const init = async () => {
   await layoutCanvas()
 }
 
-//  This is where we layout the canvas, and redraw the textures (if any are used)
+/*
+  This function will set up the canvas to be the correct size and then place it onto the page.
+  It gets called whenever the canvas is resized. The end of this function then calls the
+  drawCanvas function. We should never call the drawCanvas function directly.
+*/
 const layoutCanvas = async (windowObj = window, urlParamsObj = urlParams) => {
   //  Kill the next animation frame (note, this isn't always used, only if we're animating)
   windowObj.cancelAnimationFrame(nextFrame)
