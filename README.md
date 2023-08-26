@@ -27,8 +27,6 @@ The files you need are...
 ```
 index.html
   ╰ index.js
-  ╰ line.js
-  ╰ page.js
 ```
 
 ...spin up a local webserver or just opening index.html should do the trick, see instructions.md for, well, instructions.
